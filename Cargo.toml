@@ -1,0 +1,21 @@
+[package]
+name = "hectic-rs"
+version = "0.1.0"
+authors = ["Ashley Ruglys <ashley.ruglys@gmail.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+specs = { version = "0.16.1", default-features = false, features = ["specs-derive", "parallel"] }
+winit = "0.22.0"
+image = { version = "0.23.1", default-features = false, features = ["png"] }
+rand = "0.7.3"
+arrayvec = "0.5.1"
+wgpu = { git = "https://github.com/gfx-rs/wgpu-rs" }
+futures = "0.3.4"
+cgmath = "0.17.0"
+zerocopy = "0.3.0"
+
+[build-dependencies]
+yaap = { path = "../yaap" }
