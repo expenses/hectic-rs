@@ -1,0 +1,12 @@
+[package]
+name = "yaap"
+version = "0.1.0"
+authors = ["Ashley Ruglys <ashley.ruglys@gmail.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+rectangle-pack = "0.1.5"
+image = "0.23.2"
+case_style = "0.2.1"
