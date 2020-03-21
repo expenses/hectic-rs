@@ -12,6 +12,7 @@ mod graphics;
 mod components;
 mod resources;
 mod systems;
+mod stages;
 
 struct Renderer2 {
     swap_chain: wgpu::SwapChain,
@@ -238,9 +239,10 @@ fn main() {
         world.register::<components::Movement>();
         world.register::<components::DieOffscreen>();
         world.register::<components::BackgroundLayer>();
+        world.register::<components::Controllable>();
+        world.register::<components::FrozenUntil>();
+        world.register::<components::BeenOnscreen>();
 
-        world.insert(resources::PlayerPosition(Vector2::new(0.0, 0.0)));
-        world.insert(resources::PlayerHealth(3));
         world.insert(resources::KeyPresses(vec![]));
         world.insert(resources::Controls::default());
         let size = renderer.window.inner_size();
@@ -250,26 +252,9 @@ fn main() {
             dpi_factor: renderer.window.scale_factor() as f32,
             window_size: (size.width as f32, size.height as f32)
         });
+        world.insert(resources::GameTime(0.0));
 
-        world.create_entity()
-            .with(components::Position(Vector2::new(0.0, 0.0)))
-            .with(components::Image::from(graphics::Image::NightSky))
-            .with(components::BackgroundLayer)
-            .build();
-
-        world.create_entity()
-            .with(components::Position(Vector2::new(0.0, 0.0)))
-            .with(components::Image::from(graphics::Image::Clouds))
-            .with(components::Movement::Linear(Vector2::new(0.0, 10.0)))
-            .with(components::BackgroundLayer)
-            .build();
-
-        world.create_entity()
-            .with(components::Position(Vector2::new(0.0, 1920.0 * 2.0)))
-            .with(components::Image::from(graphics::Image::Clouds))
-            .with(components::Movement::Linear(Vector2::new(0.0, 10.0)))
-            .with(components::BackgroundLayer)
-            .build();
+        stages::stage_one(&mut world);
         
         let db = DispatcherBuilder::new()
             .with(systems::KillOffscreen, "kill", &[])
@@ -277,24 +262,13 @@ fn main() {
             .with(systems::HandleKeypresses, "key", &[])
             .with(systems::Control, "ctrl", &[])
             .with(systems::RenderSprite, "rs", &["mov", "ctrl"])
-            .with(systems::RenderPlayer, "rp", &["ctrl"])
-            .with(systems::RepeatBackgroundLayers, "rbl", &[]);
+            .with(systems::RepeatBackgroundLayers, "rbl", &[])
+            .with(systems::TickTime, "tick", &[])
+            .with(systems::AddOnscreen, "add_on", &[]);
 
         println!("{:?}", db);
 
         let mut dispatcher = db.build();
-
-        let mut rng = rand::thread_rng();
-        use rand::Rng;
-
-        for i in 0 .. 50 {
-            world.create_entity()
-                .with(components::Position(Vector2::new(i as f32 * 20.0, i as f32 * 20.0)))
-                .with(components::Image::from(graphics::Image::Bat))
-                .with(components::Movement::Linear(Vector2::new(rng.gen_range(-1.0, 1.0), rng.gen_range(-1.0, 1.0))))
-                .with(components::DieOffscreen)
-                .build();
-        }
 
         event_loop.run(move |event, _, control_flow| match event {
             Event::WindowEvent { event, .. } => match event {
@@ -324,12 +298,12 @@ fn main() {
                 }
                 _ => {}
             },
-            Event::MainEventsCleared => renderer.window.request_redraw(),
-            Event::RedrawRequested(_) => {
+            Event::MainEventsCleared => {
                 dispatcher.dispatch(&world);
                 world.maintain();
-                renderer.render(&mut world.fetch_mut());
-            }
+                renderer.window.request_redraw()
+            },
+            Event::RedrawRequested(_) => renderer.render(&mut world.fetch_mut()),
             _ => {}
         });
     })
@@ -341,3 +315,6 @@ pub struct Vertex {
     pos: [f32; 2],
     uv: [f32; 2]
 }
+
+const WIDTH: f32 = 480.0;
+const HEIGHT: f32 = 640.0;

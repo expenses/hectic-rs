@@ -1,16 +1,6 @@
 use cgmath::Vector2;
 use winit::event::VirtualKeyCode;
 
-pub struct PlayerPosition(pub Vector2<f32>);
-
-impl Default for PlayerPosition {
-    fn default() -> Self {
-        Self(Vector2::new(0.0, 0.0))
-    }
-}
-
-pub struct PlayerHealth(pub u8);
-
 #[derive(Default)]
 pub struct KeyPresses(pub Vec<(VirtualKeyCode, bool)>);
 
@@ -30,3 +20,6 @@ pub struct Renderer {
     pub dpi_factor: f32,
     pub window_size: (f32, f32)
 }
+
+#[derive(Default)]
+pub struct GameTime(pub f32);
