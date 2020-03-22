@@ -1,14 +1,9 @@
-pub struct Loader<'a> {
-    pub device: &'a wgpu::Device,
-    pub encoder: &'a mut wgpu::CommandEncoder,
-}
-
-fn load_png(bytes: &'static [u8], loader: &mut Loader) -> Sprite {
+fn load_png(bytes: &'static [u8], device: &wgpu::Device, encoder: &mut wgpu::CommandEncoder) -> wgpu::TextureView {
     let image = image::load_from_memory_with_format(bytes, image::ImageFormat::Png).unwrap()
         .into_rgba();
 
     let temp_buf =
-        loader.device.create_buffer_with_data( &*image, wgpu::BufferUsage::COPY_SRC);
+        device.create_buffer_with_data( &*image, wgpu::BufferUsage::COPY_SRC);
 
     let texture_extent = wgpu::Extent3d {
         width: image.width(),
@@ -16,7 +11,7 @@ fn load_png(bytes: &'static [u8], loader: &mut Loader) -> Sprite {
         depth: 1,
     };
 
-    let texture = loader.device.create_texture(&wgpu::TextureDescriptor {
+    let texture = device.create_texture(&wgpu::TextureDescriptor {
         size: texture_extent,
         array_layer_count: 1,
         mip_level_count: 1,
@@ -27,7 +22,7 @@ fn load_png(bytes: &'static [u8], loader: &mut Loader) -> Sprite {
     });
 
 
-    loader.encoder.copy_buffer_to_texture(
+    encoder.copy_buffer_to_texture(
         wgpu::BufferCopyView {
             buffer: &temp_buf,
             offset: 0,
@@ -43,35 +38,11 @@ fn load_png(bytes: &'static [u8], loader: &mut Loader) -> Sprite {
         texture_extent,
     );
 
-    let texture_view = texture.create_default_view();
-
-    Sprite {
-        texture_view
-    }
-}
-
-pub struct Sprite {
-    pub texture_view: wgpu::TextureView,
-}
-
-pub struct Resources {
-    pub sprites: Sprite
+    texture.create_default_view()
 }
 
 include!(concat!(env!("OUT_DIR"), "/image.rs"));
 
-impl Resources {
-    pub fn load(device: &wgpu::Device, encoder: &mut wgpu::CommandEncoder) -> Self {
-        let loader = &mut Loader {device, encoder};
-
-        Self {
-            sprites: load_png(include_bytes!(concat!(env!("OUT_DIR"), "/packed.png")), loader),
-        }
-    }
-}
-
-impl Default for Resources {
-    fn default() -> Self {
-        panic!()
-    }
+pub fn load_packed(device: &wgpu::Device, encoder: &mut wgpu::CommandEncoder) -> wgpu::TextureView {
+    load_png(include_bytes!(concat!(env!("OUT_DIR"), "/packed.png")), device, encoder)
 }

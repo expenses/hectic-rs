@@ -29,9 +29,9 @@ pub fn stage_one(mut world: &mut World) {
     world.create_entity()
         .with(components::Position(middle))
         .with(components::Image::from(graphics::Image::Player))
-        .with(components::Controllable)
+        .with(components::Controllable::one_player())
         .build();
-    
+
     for start in float_iter(1.0, 6.0, 0.25) {
         create_bat_with_curve(&mut world, Curve::horizontal(100.0, 300.0, true, 2.5), start);
         create_bat_with_curve(&mut world, Curve::horizontal(150.0, 350.0, true, 2.5), start);
@@ -51,6 +51,23 @@ pub fn stage_one(mut world: &mut World) {
     for start in float_iter(15.0, 20.0, 0.5) {
         create_bat_with_curve(&mut world, Curve::horizontal(400.0, 600.0, true, 2.5), start)
     }
+
+    for x in [0.25, 0.5, 0.75].iter() {
+        world.create_entity()
+            .with(components::Movement::FiringMove(2.5, 34.0, 100.0))
+            .with(components::Position(Vector2::new(x * WIDTH, -50.0)))
+            .with(components::Image::from(graphics::Image::Gargoyle))
+            .with(components::DieOffscreen)
+            .with(components::FrozenUntil(23.0))
+            .with(components::FiresBullets {
+                image: components::Image::from(graphics::Image::RockBullet),
+                speed: 2.5,
+                cooldown: 1.0,
+                last_fired: 0.0,
+                method: components::FiringMethod::AtPlayer(3, 1.0),
+            })
+            .build();
+    }
 }
 
 fn create_bat_with_curve(mut world: &mut World, curve: components::Curve, start: f32) {
@@ -61,7 +78,7 @@ fn create_bat_with_curve(mut world: &mut World, curve: components::Curve, start:
         .build();
 }
 
-fn entity_with_curve(mut world: &mut World, curve: components::Curve) -> EntityBuilder {
+fn entity_with_curve(world: &mut World, curve: components::Curve) -> EntityBuilder {
     world.create_entity()
         .with(components::Movement::FollowCurve(curve.clone()))
         .with(components::Position(curve.b))

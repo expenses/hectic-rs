@@ -2,11 +2,11 @@ use specs::prelude::*;
 
 use crate::components::*;
 use crate::resources::*;
-use crate::Vertex;
-use winit::{
-    event::VirtualKeyCode,
-};
+
 use cgmath::Vector2;
+use rand::Rng;
+
+use crate::renderer::BufferRenderer as Renderer;
 
 use crate::graphics::Image as GraphicsImage;
 
@@ -15,35 +15,6 @@ const HEIGHT: f32 = 640.0;
 const PLAYER_SPEED: f32 = 250.0 / 60.0;
 const PLAYER_BULLET_SPEED: f32 = 500.0 / 60.0;
 
-pub fn render_sprite(sprite: &Image, mut x: f32, mut y: f32, renderer: &mut Renderer) {
-    let (pos_x, pos_y, width, height) = sprite.coordinates();
-
-    let (s_w, s_h) = renderer.window_size;
-    x *= 2.0;
-    y *= 2.0;
-    x -= s_w;
-    y -= s_h;
-    x /= s_w;// / renderer.dpi_factor;
-    y /= s_h;// / renderer.dpi_factor;
-    
-    let (mut sp_w, mut sp_h) = sprite.size();
-    sp_w *= 2.0;// * renderer.dpi_factor;
-    sp_h *= 2.0;// * renderer.dpi_factor;
-    sp_w /= s_w;
-    sp_h /= s_h;
-
-    let len = renderer.vertices.len() as i16;
-
-    renderer.vertices.extend_from_slice(&[
-        Vertex{pos: [x + sp_w, y - sp_h], uv: [pos_x + width, pos_y]},
-        Vertex{pos:[x - sp_w, y - sp_h], uv: [pos_x, pos_y]},
-        Vertex{pos: [x - sp_w, y + sp_h], uv: [pos_x, pos_y + height]},
-        Vertex{pos: [x + sp_w, y + sp_h], uv: [pos_x + width, pos_y + height]},
-    ]);
-
-    renderer.indices.extend_from_slice(&[len, len + 1, len + 2, len + 2, len + 3, len]);
-}
-
 pub struct RepeatBackgroundLayers;
 
 impl<'a> System<'a> for RepeatBackgroundLayers {
@@ -51,9 +22,9 @@ impl<'a> System<'a> for RepeatBackgroundLayers {
 
     fn run(&mut self, (layer, image, mut pos): Self::SystemData) {
         for (_layer, image, pos) in (&layer, &image, &mut pos).join() {
-            let (_, height) = image.size();
-            if pos.0.y > height * 2.0 {
-                pos.0.y -= height * 4.0;
+            let size = image.size();
+            if pos.0.y > size.y * 2.0 {
+                pos.0.y -= size.y * 4.0;
             }
         }
     }
@@ -66,7 +37,7 @@ impl<'a> System<'a> for RenderSprite {
 
     fn run(&mut self, (pos, image, mut renderer): Self::SystemData) {
         for (pos, image) in (&pos, &image).join() {
-            render_sprite(image, pos.0.x, pos.0.y, &mut renderer)
+            renderer.render_sprite(*image, pos.0);
         }
     }
 }
@@ -74,18 +45,25 @@ impl<'a> System<'a> for RenderSprite {
 pub struct MoveEntities;
 
 impl<'a> System<'a> for MoveEntities {
-    type SystemData = (WriteStorage<'a, Position>, WriteStorage<'a, Movement>, ReadStorage<'a, FrozenUntil>);
+    type SystemData = (WriteStorage<'a, Position>, WriteStorage<'a, Movement>, ReadStorage<'a, FrozenUntil>, Read<'a, GameTime>);
 
-    fn run(&mut self, (mut pos, mut mov, frozen): Self::SystemData) {
-        for (mut pos, mov, frozen) in (&mut pos, &mut mov, !&frozen).join() {
+    fn run(&mut self, (mut pos, mut mov, frozen, game_time): Self::SystemData) {
+        for (mut pos, mov, _) in (&mut pos, &mut mov, !&frozen).join() {
             match mov {
-                Movement::Linear(vector) => pos.0 = pos.0 + *vector,
+                Movement::Linear(vector) => pos.0 += *vector,
                 Movement::Falling(speed) => {
                     pos.0.y -= *speed;
                     *speed += 0.15;
                 },
                 Movement::FollowCurve(curve) => {
                     pos.0 = curve.step(pos.0);
+                },
+                Movement::FiringMove(speed, return_time, stop_y) => {
+                    if *return_time <= game_time.0 {
+                        pos.0.y -= *speed;
+                    } else {
+                        pos.0.y = min(pos.0.y + *speed, *stop_y);
+                    }
                 }
             }
         }
@@ -95,18 +73,11 @@ impl<'a> System<'a> for MoveEntities {
 pub struct HandleKeypresses;
 
 impl<'a> System<'a> for HandleKeypresses {
-    type SystemData = (Write<'a, KeyPresses>, Write<'a, Controls>);
+    type SystemData = (Write<'a, KeyPresses>, Write<'a, KeyboardState>);
 
-    fn run(&mut self, (mut presses, mut controls): Self::SystemData) {
+    fn run(&mut self, (mut presses, mut kdb_state): Self::SystemData) {
         for (key, pressed) in presses.0.drain(..) {
-            match key {
-                VirtualKeyCode::Left => controls.left = pressed,
-                VirtualKeyCode::Right => controls.right = pressed,
-                VirtualKeyCode::Down => controls.down = pressed,
-                VirtualKeyCode::Up => controls.up = pressed,
-                VirtualKeyCode::Z => controls.fire = pressed,
-                _ => {}
-            }
+            kdb_state.0.insert(key, pressed);
         }
     }
 }
@@ -130,46 +101,34 @@ fn max(a: f32, b: f32) -> f32 {
 }
 
 impl<'a> System<'a> for Control {
-    type SystemData = (
-        Entities<'a>, Read<'a, Controls>, ReadStorage<'a, Controllable>,
-        WriteStorage<'a, Position>, WriteStorage<'a, Image>, WriteStorage<'a, Movement>, WriteStorage<'a, DieOffscreen>,
-    );
+    type SystemData = (Read<'a, KeyboardState>, ReadStorage<'a, Controllable>, WriteStorage<'a, Position>, Write<'a, BulletSpawner>);
 
-    fn run(&mut self, (entity, controls, controllable, mut position, mut image, mut movement, mut dieoffscreen): Self::SystemData) {
-        let bullet_positions: Vec<_> = (&controllable, &mut position).join()
-            .filter_map(|(_, mut pos)| {
-                if controls.left {
-                    pos.0.x = max(pos.0.x - PLAYER_SPEED, 0.0);
-                }
-    
-                if controls.right {
-                    pos.0.x = min(pos.0.x + PLAYER_SPEED, WIDTH);
-                }
-    
-                if controls.up {
-                    pos.0.y = max(pos.0.y - PLAYER_SPEED, 0.0);
-                }
-    
-                if controls.down {
-                    pos.0.y = min(pos.0.y + PLAYER_SPEED, HEIGHT);
-                }
+    fn run(&mut self, (kdb_state, controllable, mut position, mut spawner): Self::SystemData) {
+        for (controls, mut pos) in (&controllable, &mut position).join() {
+            if kdb_state.is_pressed(controls.left) {
+                pos.0.x = max(pos.0.x - PLAYER_SPEED, 0.0);
+            }
 
-                if controls.fire {
-                    Some(pos.0)
-                } else {
-                    None
-                }
-            })
-            .collect();
+            if kdb_state.is_pressed(controls.right) {
+                pos.0.x = min(pos.0.x + PLAYER_SPEED, WIDTH);
+            }
 
-        bullet_positions.into_iter().for_each(|pos| {
-            entity.build_entity()
-                .with(Position(pos), &mut position)
-                .with(Image::from(GraphicsImage::PlayerBullet), &mut image)
-                .with(Movement::Linear(Vector2::new(0.0, -PLAYER_BULLET_SPEED)), &mut movement)
-                .with(DieOffscreen, &mut dieoffscreen)
-                .build();
-        });
+            if kdb_state.is_pressed(controls.up) {
+                pos.0.y = max(pos.0.y - PLAYER_SPEED, 0.0);
+            }
+
+            if kdb_state.is_pressed(controls.down) {
+                pos.0.y = min(pos.0.y + PLAYER_SPEED, HEIGHT);
+            }
+
+            if kdb_state.is_pressed(controls.fire) {
+                spawner.0.push(BulletToBeSpawned {
+                    pos: pos.0,
+                    image: Image::from(GraphicsImage::PlayerBullet),
+                    velocity: Vector2::new(0.0, -PLAYER_BULLET_SPEED),
+                });
+            }
+        }
     }
 }
 
@@ -198,8 +157,8 @@ impl<'a> System<'a> for KillOffscreen {
 
     fn run(&mut self, (entities, pos, been_onscreen, image): Self::SystemData) {
         for (entity, pos, _, image) in (&entities, &pos, &been_onscreen, &image).join() {
-            if !(is_onscreen(pos, image)) {
-                entities.delete(entity);
+            if !(is_onscreen(pos, *image)) {
+                entities.delete(entity).unwrap();
             }
         }
     }
@@ -212,15 +171,69 @@ impl<'a> System<'a> for AddOnscreen {
 
     fn run(&mut self, (entities, pos, image, die_offscreen, mut been_onscreen): Self::SystemData) {
         for (entity, pos, image, _) in (&entities, &pos, &image, &die_offscreen).join() {
-            if is_onscreen(pos, image) {
+            if is_onscreen(pos, *image) {
                 been_onscreen.insert(entity, BeenOnscreen).unwrap();
             }
         }
     }
 }
 
-fn is_onscreen(pos: &Position, image: &Image) -> bool {
-    let (w, h) = image.size();
-    let (w, h) = (w / 2.0, h / 2.0);
-    !(pos.0.y + h <= 0.0 || pos.0.y - h >= HEIGHT || pos.0.x + w <= 0.0 || pos.0.x - w >= WIDTH)
+fn is_onscreen(pos: &Position, image: Image) -> bool {
+    let size = image.size() / 2.0;
+    !(pos.0.y + size.y <= 0.0 || pos.0.y - size.y >= HEIGHT || pos.0.x + size.x <= 0.0 || pos.0.x - size.x >= WIDTH)
+}
+
+pub struct FireBullets;
+
+impl<'a> System<'a> for FireBullets {
+    type SystemData = (ReadStorage<'a, Position>, ReadStorage<'a, Controllable>, WriteStorage<'a, FiresBullets>, Write<'a, BulletSpawner>, Read<'a, GameTime>);
+
+    fn run(&mut self, (pos, controllable, mut fires, mut spawner, time): Self::SystemData) {
+        let player_positions = (&pos, &controllable).join()
+            .map(|(pos, _)| pos.0)
+            .collect::<Vec<_>>();
+
+        for (pos, mut fires) in (&pos, &mut fires).join() {
+            if fires.last_fired + fires.cooldown <= time.0 {
+                match fires.method {
+                    FiringMethod::AtPlayer(total, spread) => {
+                        let player = rand::thread_rng().gen_range(0, player_positions.len());
+                        let player = player_positions[player];
+
+                        // Get the rotation to the player
+                        let rotation = (player.y - pos.0.y).atan2(player.x - pos.0.x);
+
+                        for i in 0 .. total {
+                            let mid_point = (total - 1) as f32 / 2.0;
+                            let rotation_difference = spread * (mid_point - i as f32) / total as f32;
+
+                            spawner.0.push(fires.bullet_to_be_spawned(pos.0, rotation + rotation_difference));
+                        }
+                    }
+                }
+
+                fires.last_fired = time.0;
+            }
+        }
+    }
+}
+
+pub struct SpawnBullets;
+
+impl<'a> System<'a> for SpawnBullets {
+    type SystemData = (
+        Entities<'a>, Write<'a, BulletSpawner>,
+        WriteStorage<'a, Position>, WriteStorage<'a, Image>, WriteStorage<'a, Movement>, WriteStorage<'a, DieOffscreen>,
+    );
+
+    fn run(&mut self, (entities, mut spawner, mut pos, mut image, mut mov, mut dieoffscreen): Self::SystemData) {
+        for bullet in spawner.0.drain(..) {
+            entities.build_entity()
+                .with(Position(bullet.pos), &mut pos)
+                .with(bullet.image, &mut image)
+                .with(Movement::Linear(bullet.velocity), &mut mov)
+                .with(DieOffscreen, &mut dieoffscreen)
+                .build();
+        }
+    }
 }

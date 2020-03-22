@@ -1,25 +1,26 @@
-use cgmath::Vector2;
 use winit::event::VirtualKeyCode;
+use cgmath::Vector2;
 
 #[derive(Default)]
 pub struct KeyPresses(pub Vec<(VirtualKeyCode, bool)>);
 
 #[derive(Default)]
-pub struct Controls {
-    pub left: bool,
-    pub up: bool,
-    pub down: bool,
-    pub right: bool,
-    pub fire: bool,
-}
+pub struct KeyboardState(pub std::collections::HashMap<VirtualKeyCode, bool>);
 
-#[derive(Default)]
-pub struct Renderer {
-    pub vertices: Vec<crate::Vertex>,
-    pub indices: Vec<i16>,
-    pub dpi_factor: f32,
-    pub window_size: (f32, f32)
+impl KeyboardState {
+    pub fn is_pressed(&self, key: VirtualKeyCode) -> bool {
+        self.0.get(&key).cloned().unwrap_or(false)
+    }
 }
 
 #[derive(Default)]
 pub struct GameTime(pub f32);
+
+#[derive(Default)]
+pub struct BulletSpawner(pub Vec<BulletToBeSpawned>);
+
+pub struct BulletToBeSpawned {
+    pub pos: Vector2<f32>,
+    pub image: crate::components::Image,
+    pub velocity: Vector2<f32>,
+}

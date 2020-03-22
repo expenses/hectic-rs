@@ -1,23 +1,24 @@
 use cgmath::Vector2;
 use specs::*;
 use cgmath::MetricSpace;
+use winit::event::VirtualKeyCode;
 
 use crate::{WIDTH, HEIGHT};
 use crate::graphics::Image as GraphicsImage;
 
-#[derive(Component)]
+#[derive(Component, Clone, Copy)]
 pub struct Image(u16);
 
 impl Image {
-    pub fn coordinates(&self) -> (f32, f32, f32, f32) {
+    pub fn coordinates(self) -> (f32, f32, f32, f32) {
         let (x, y, w, h) = GraphicsImage::from_u16(self.0).coordinates();
         let size = GraphicsImage::from_u16(self.0).image_size() as f32;
         (x as f32 / size, y as f32 / size, w as f32 / size, h as f32 / size)
     }
 
-    pub fn size(&self) -> (f32, f32) {
+    pub fn size(self) -> Vector2<f32> {
         let (_, _, w, h) = GraphicsImage::from_u16(self.0).coordinates();
-        (w as f32, h as f32)
+        Vector2::new(w as f32, h as f32)
     }
 
     pub fn from(image: GraphicsImage) -> Self {
@@ -26,7 +27,42 @@ impl Image {
 }
 
 #[derive(Component)]
-pub struct Controllable;
+pub struct Controllable {
+    pub up: VirtualKeyCode,
+    pub down: VirtualKeyCode,
+    pub left: VirtualKeyCode,
+    pub right: VirtualKeyCode,
+    pub fire: VirtualKeyCode,
+}
+
+impl Controllable {
+    pub fn one_player() -> Self {
+        Self {
+            up: VirtualKeyCode::Up,
+            down: VirtualKeyCode::Down,
+            left: VirtualKeyCode::Left,
+            right: VirtualKeyCode::Right,
+            fire: VirtualKeyCode::Z,
+        }
+    }
+
+    pub fn two_players() -> (Self, Self) {
+        (
+            {
+                let mut player_one = Self::one_player();
+                player_one.fire = VirtualKeyCode::Slash;
+                player_one
+            },
+            Self {
+                up: VirtualKeyCode::W,
+                down: VirtualKeyCode::S,
+                left: VirtualKeyCode::A,
+                right: VirtualKeyCode::D,
+                fire: VirtualKeyCode::LControl,
+            }
+        )
+    }
+}
 
 #[derive(Component)]
 pub struct BackgroundLayer;
@@ -38,7 +74,8 @@ pub struct Position(pub Vector2<f32>);
 pub enum Movement {
     Linear(Vector2<f32>),
     Falling(f32),
-    FollowCurve(Curve)
+    FollowCurve(Curve),
+    FiringMove(f32, f32, f32)
 }
 
 #[derive(Component)]
@@ -49,6 +86,30 @@ pub struct BeenOnscreen;
 
 #[derive(Component)]
 pub struct FrozenUntil(pub f32);
+
+#[derive(Component)]
+pub struct FiresBullets {
+    pub image: Image,
+    pub speed: f32,
+    pub cooldown: f32,
+    pub last_fired: f32,
+    pub method: FiringMethod
+}
+
+impl FiresBullets {
+    pub fn bullet_to_be_spawned(&self, position: Vector2<f32>, rotation: f32) -> crate::resources::BulletToBeSpawned {
+        crate::resources::BulletToBeSpawned {
+            pos: position,
+            image: self.image,
+            velocity: Vector2::new(rotation.cos(), rotation.sin()) * self.speed,
+        }
+    }
+}
+
+pub enum FiringMethod {
+    AtPlayer(u16, f32)
+}
+
 
 const S: f32 = 0.0;
 
@@ -64,10 +125,10 @@ fn curve_point_scalar(a: f32, b: f32, c: f32, d: f32, t: f32) -> f32 {
     let ttt = t * tt;
     let cb = CURVE_BASIS_MATRIX;
 
-    return  a * (ttt*cb[0][0] + tt*cb[1][0] + t*cb[2][0] + cb[3][0]) +
-            b * (ttt*cb[0][1] + tt*cb[1][1] + t*cb[2][1] + cb[3][1]) +
-            c * (ttt*cb[0][2] + tt*cb[1][2] + t*cb[2][2] + cb[3][2]) +
-            d * (ttt*cb[0][3] + tt*cb[1][3] + t*cb[2][3] + cb[3][3]);
+    a * (ttt*cb[0][0] + tt*cb[1][0] + t*cb[2][0] + cb[3][0]) +
+    b * (ttt*cb[0][1] + tt*cb[1][1] + t*cb[2][1] + cb[3][1]) +
+    c * (ttt*cb[0][2] + tt*cb[1][2] + t*cb[2][2] + cb[3][2]) +
+    d * (ttt*cb[0][3] + tt*cb[1][3] + t*cb[2][3] + cb[3][3])
 }
 
 #[derive(Clone)]
