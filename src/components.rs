@@ -50,7 +50,7 @@ impl Controllable {
         (
             {
                 let mut player_one = Self::one_player();
-                player_one.fire = VirtualKeyCode::Slash;
+                player_one.fire = VirtualKeyCode::RControl;
                 player_one
             },
             Self {
@@ -58,7 +58,7 @@ impl Controllable {
                 down: VirtualKeyCode::S,
                 left: VirtualKeyCode::A,
                 right: VirtualKeyCode::D,
-                fire: VirtualKeyCode::LControl,
+                fire: VirtualKeyCode::LShift,
             }
         )
     }
@@ -91,9 +91,31 @@ pub struct FrozenUntil(pub f32);
 pub struct FiresBullets {
     pub image: Image,
     pub speed: f32,
-    pub cooldown: f32,
-    pub last_fired: f32,
     pub method: FiringMethod
+}
+
+#[derive(Component)]
+pub struct Cooldown {
+    cooldown_time: f32,
+    last_fired: f32,
+}
+
+impl Cooldown {
+    pub fn new(cooldown_time: f32) -> Self {
+        Self {
+            cooldown_time,
+            last_fired: std::f32::MIN,
+        }
+    }
+
+    pub fn is_ready(&mut self, time: f32) -> bool {
+        let is_ready = self.last_fired + self.cooldown_time <= time;
+        if is_ready {
+            self.last_fired = time;
+        }
+
+        is_ready
+    }
 }
 
 impl FiresBullets {
@@ -102,6 +124,7 @@ impl FiresBullets {
             pos: position,
             image: self.image,
             velocity: Vector2::new(rotation.cos(), rotation.sin()) * self.speed,
+            enemy: true,
         }
     }
 }
@@ -129,6 +152,43 @@ fn curve_point_scalar(a: f32, b: f32, c: f32, d: f32, t: f32) -> f32 {
     b * (ttt*cb[0][1] + tt*cb[1][1] + t*cb[2][1] + cb[3][1]) +
     c * (ttt*cb[0][2] + tt*cb[1][2] + t*cb[2][2] + cb[3][2]) +
     d * (ttt*cb[0][3] + tt*cb[1][3] + t*cb[2][3] + cb[3][3])
+}
+
+#[derive(Component)]
+pub struct Friendly;
+
+#[derive(Component)]
+pub struct Enemy;
+
+#[derive(Component)]
+pub struct Health(pub u32);
+
+#[derive(Component)]
+pub struct Hitbox(pub Vector2<f32>);
+
+#[derive(Component)]
+pub struct Explosion(pub f32);
+
+#[derive(Component)]
+pub struct Invulnerability(f32);
+
+impl Invulnerability {
+    pub fn new() -> Self {
+        Self(std::f32::MIN)
+    }
+
+    pub fn can_damage(&mut self, time: f32) -> bool {
+        if !self.is_invul(time) {
+            self.0 = time;
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn is_invul(&self, time: f32) -> bool {
+        self.0 + 5.0 >= time
+    }
 }
 
 #[derive(Clone)]

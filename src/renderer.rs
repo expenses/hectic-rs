@@ -151,6 +151,11 @@ impl Renderer {
                         offset: 8,
                         shader_location: 1,
                     },
+                    wgpu::VertexAttributeDescriptor {
+                        format: wgpu::VertexFormat::Float4,
+                        offset: 16,
+                        shader_location: 2,
+                    },
                 ],
             }],
             sample_count: 1,
@@ -232,7 +237,8 @@ impl Renderer {
 #[derive(zerocopy::AsBytes, Clone, Debug)]
 pub struct Vertex {
     pos: [f32; 2],
-    uv: [f32; 2]
+    uv: [f32; 2],
+    overlay: [f32; 4],
 }
 
 pub struct BufferRenderer {
@@ -258,7 +264,7 @@ impl BufferRenderer {
         self.window_size = Vector2::new(width as f32, height as f32);
     }
 
-    pub fn render_sprite(&mut self, sprite: Image, mut pos: Vector2<f32>) {
+    pub fn render_sprite(&mut self, sprite: Image, mut pos: Vector2<f32>, overlay: [f32; 4]) {
         let len = self.vertices.len() as i16;
         let (pos_x, pos_y, width, height) = sprite.coordinates();
 
@@ -275,10 +281,37 @@ impl BufferRenderer {
         let s_h = sprite_size.y;
 
         self.vertices.extend_from_slice(&[
-            Vertex{pos: [x + s_w, y - s_h], uv: [pos_x + width, pos_y]},
-            Vertex{pos: [x - s_w, y - s_h], uv: [pos_x, pos_y]},
-            Vertex{pos: [x - s_w, y + s_h], uv: [pos_x, pos_y + height]},
-            Vertex{pos: [x + s_w, y + s_h], uv: [pos_x + width, pos_y + height]},
+            Vertex{pos: [x + s_w, y - s_h], uv: [pos_x + width, pos_y], overlay},
+            Vertex{pos: [x - s_w, y - s_h], uv: [pos_x, pos_y], overlay},
+            Vertex{pos: [x - s_w, y + s_h], uv: [pos_x, pos_y + height], overlay},
+            Vertex{pos: [x + s_w, y + s_h], uv: [pos_x + width, pos_y + height], overlay},
+        ]);
+
+        self.indices.extend_from_slice(&[len, len + 1, len + 2, len + 2, len + 3, len]);
+    }
+
+    pub fn render_box(&mut self, mut pos: Vector2<f32>, size: Vector2<f32>) {
+        let len = self.vertices.len() as i16;
+
+        // dpi factor?
+        pos *= 2.0;
+        let pos = pos - self.window_size;
+        let pos = pos.div_element_wise(self.window_size);
+
+        let sprite_size = size.div_element_wise(self.window_size);
+        
+        let x = pos.x;
+        let y = pos.y;
+        let s_w = sprite_size.x;
+        let s_h = sprite_size.y;
+
+        let overlay = [1.0, 0.0, 0.0, 1.0];
+
+        self.vertices.extend_from_slice(&[
+            Vertex{pos: [x + s_w, y - s_h], uv: [0.0; 2], overlay},
+            Vertex{pos: [x - s_w, y - s_h], uv: [0.0; 2], overlay},
+            Vertex{pos: [x - s_w, y + s_h], uv: [0.0; 2], overlay},
+            Vertex{pos: [x + s_w, y + s_h], uv: [0.0; 2], overlay},
         ]);
 
         self.indices.extend_from_slice(&[len, len + 1, len + 2, len + 2, len + 3, len]);

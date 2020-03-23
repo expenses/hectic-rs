@@ -23,4 +23,8 @@ pub struct BulletToBeSpawned {
     pub pos: Vector2<f32>,
     pub image: crate::components::Image,
     pub velocity: Vector2<f32>,
+    pub enemy: bool,
 }
+
+#[derive(Default)]
+pub struct DamageTracker(pub Vec<(specs::Entity, specs::Entity, Vector2<f32>)>);

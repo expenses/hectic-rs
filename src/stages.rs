@@ -4,7 +4,7 @@ use components::Curve;
 use cgmath::Vector2;
 
 pub fn stage_one(mut world: &mut World) {
-    let middle = Vector2::new(WIDTH/2.0, HEIGHT / 2.0);
+    let middle = Vector2::new(WIDTH / 2.0, HEIGHT / 2.0);
 
     world.create_entity()
             .with(components::Position(middle))
@@ -26,18 +26,14 @@ pub fn stage_one(mut world: &mut World) {
         .with(components::BackgroundLayer)
         .build();
 
-    world.create_entity()
-        .with(components::Position(middle))
-        .with(components::Image::from(graphics::Image::Player))
-        .with(components::Controllable::one_player())
-        .build();
+    create_players(&mut world, false);
 
-    for start in float_iter(1.0, 6.0, 0.25) {
+    for start in float_iter(10.0, 60.0, 0.25) {
         create_bat_with_curve(&mut world, Curve::horizontal(100.0, 300.0, true, 2.5), start);
         create_bat_with_curve(&mut world, Curve::horizontal(150.0, 350.0, true, 2.5), start);
     }
 
-    for start in float_iter(3.0, 10.0, 0.25) {
+    for start in float_iter(30.0, 100.0, 0.25) {
         create_bat_with_curve(&mut world, Curve::horizontal(200.0, 400.0, false, 2.5), start);
         create_bat_with_curve(&mut world, Curve::horizontal(250.0, 450.0, false, 2.5), start);
     }
@@ -62,10 +58,9 @@ pub fn stage_one(mut world: &mut World) {
             .with(components::FiresBullets {
                 image: components::Image::from(graphics::Image::RockBullet),
                 speed: 2.5,
-                cooldown: 1.0,
-                last_fired: 0.0,
                 method: components::FiringMethod::AtPlayer(3, 1.0),
             })
+            .with(components::Cooldown::new(1.0))
             .build();
     }
 }
@@ -75,6 +70,9 @@ fn create_bat_with_curve(mut world: &mut World, curve: components::Curve, start:
         .with(components::Image::from(graphics::Image::Bat))
         .with(components::FrozenUntil(start))
         .with(components::DieOffscreen)
+        .with(components::Hitbox(Vector2::new(25.0, 20.0)))
+        .with(components::Enemy)
+        .with(components::Health(4))
         .build();
 }
 
@@ -92,4 +90,29 @@ fn float_iter(start: f32, end: f32, step: f32) -> impl Iterator<Item = f32> {
             Some(item)
         })
         .take_while(move |item| *item < end)
+}
+
+fn create_players(mut world: &mut World, two_players: bool) {
+    let middle = Vector2::new(WIDTH / 2.0, HEIGHT / 2.0);
+
+    if two_players {
+        let (player_one, player_two) = components::Controllable::two_players();
+        create_player(world, player_one, middle);
+        create_player(world, player_two, middle);
+    } else {
+        create_player(world, components::Controllable::one_player(), middle);
+    }
+}
+
+fn create_player(mut world: &mut World, controls: components::Controllable, position: Vector2<f32>) {
+    world.create_entity()
+            .with(components::Position(position))
+            .with(components::Image::from(graphics::Image::Player))
+            .with(controls)
+            .with(components::Cooldown::new(0.075))
+            .with(components::Hitbox(Vector2::new(10.0, 10.0)))
+            .with(components::Friendly)
+            .with(components::Health(10))
+            .with(components::Invulnerability::new())
+            .build();
 }

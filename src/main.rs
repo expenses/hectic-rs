@@ -33,12 +33,20 @@ fn main() {
     world.register::<components::FrozenUntil>();
     world.register::<components::BeenOnscreen>();
     world.register::<components::FiresBullets>();
+    world.register::<components::Cooldown>();
+    world.register::<components::Friendly>();
+    world.register::<components::Enemy>();
+    world.register::<components::Hitbox>();
+    world.register::<components::Health>();
+    world.register::<components::Explosion>();
+    world.register::<components::Invulnerability>();
 
     world.insert(resources::KeyPresses(vec![]));
     world.insert(resources::KeyboardState::default());
     world.insert(buffer_renderer);
     world.insert(resources::GameTime(0.0));
     world.insert(resources::BulletSpawner::default());
+    world.insert(resources::DamageTracker::default());
 
     stages::stage_one(&mut world);
     
@@ -49,10 +57,14 @@ fn main() {
         .with(systems::Control, "Control", &[])
         .with(systems::FireBullets, "FireBullets", &[])
         .with(systems::SpawnBullets, "SpawnBullets", &[])
-        .with(systems::RenderSprite, "RenderSprite", &["MoveEntities", "Control", "SpawnBullets"])
         .with(systems::RepeatBackgroundLayers, "RepeatBackgroundLayers", &[])
         .with(systems::TickTime, "TickTime", &[])
-        .with(systems::AddOnscreen, "AddOnscreen", &[]);
+        .with(systems::AddOnscreen, "AddOnscreen", &[])
+        .with(systems::Collisions, "Collisions", &[])
+        .with(systems::ApplyCollisions, "ApplyCollisions", &["Collisions"])
+        .with(systems::ExplosionImages, "ExplosionImages", &["ApplyCollisions"])
+        .with(systems::RenderSprite, "RenderSprite", &["MoveEntities", "Control", "SpawnBullets", "ExplosionImages"])
+        .with(systems::RenderHitboxes, "RenderHitboxes", &["RenderSprite"]);
 
     println!("{:?}", db);
 

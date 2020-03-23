@@ -645,6 +645,7 @@ version = "0.1.0"
 dependencies = [
  "arrayvec",
  "cgmath",
+ "either",
  "futures",
  "image",
  "rand 0.7.3",
