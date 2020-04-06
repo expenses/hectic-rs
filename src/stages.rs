@@ -7,10 +7,10 @@ pub fn stage_one(mut world: &mut World) {
     let middle = Vector2::new(WIDTH / 2.0, HEIGHT / 2.0);
 
     world.create_entity()
-            .with(components::Position(middle))
-            .with(components::Image::from(graphics::Image::NightSky))
-            .with(components::BackgroundLayer)
-            .build();
+        .with(components::Position(middle))
+        .with(components::Image::from(graphics::Image::NightSky))
+        .with(components::BackgroundLayer)
+        .build();
 
     world.create_entity()
         .with(components::Position(middle))
@@ -25,6 +25,19 @@ pub fn stage_one(mut world: &mut World) {
         .with(components::Movement::Linear(Vector2::new(0.0, 1.0)))
         .with(components::BackgroundLayer)
         .build();
+
+    for i in -10 .. 10 {
+        for j in -10 .. 10 {
+            let mut pos = middle;
+            pos.x += i as f32 * 64.0;
+            pos.y += j as f32 * 64.0;
+    
+            world.create_entity()
+                .with(components::Position(pos))
+                .with(components::Image::from(graphics::Image::Rain))
+                .build();
+        }
+    }
 
     create_players(&mut world, false);
 

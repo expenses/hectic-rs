@@ -31,6 +31,7 @@ impl Renderer {
         let adapter = wgpu::Adapter::request(
             &wgpu::RequestAdapterOptions {
                 power_preference: wgpu::PowerPreference::Default,
+                compatible_surface: None,
             },
             wgpu::BackendBit::PRIMARY,
         )
@@ -53,7 +54,7 @@ impl Renderer {
             device.create_shader_module(&wgpu::read_spirv(std::io::Cursor::new(&fs[..])).unwrap());
     
 
-        let mut init_encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor { todo: 0 });
+        let mut init_encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
         let packed_texture = crate::graphics::load_packed(&device, &mut init_encoder);
 
         let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
@@ -65,7 +66,7 @@ impl Renderer {
             mipmap_filter: wgpu::FilterMode::Nearest,
             lod_min_clamp: -100.0,
             lod_max_clamp: 100.0,
-            compare: None,
+            compare: wgpu::CompareFunction::Undefined,
         });
 
         let bind_group_layout =
@@ -77,6 +78,7 @@ impl Renderer {
                         ty: wgpu::BindingType::SampledTexture {
                             multisampled: false,
                             dimension: wgpu::TextureViewDimension::D2,
+                            component_type: wgpu::TextureComponentType::Uint,
                         },
                     },
                     wgpu::BindGroupLayoutEntry {
@@ -85,6 +87,7 @@ impl Renderer {
                         ty: wgpu::BindingType::Sampler { comparison: false },
                     },
                 ],
+                label: None,
             });
 
         let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
@@ -99,6 +102,7 @@ impl Renderer {
                     resource: wgpu::BindingResource::Sampler(&sampler),
                 },
             ],
+            label: None,
         });
 
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
@@ -136,28 +140,30 @@ impl Renderer {
                 write_mask: wgpu::ColorWrite::ALL,
             }],
             depth_stencil_state: None,
-            index_format: wgpu::IndexFormat::Uint16,
-            vertex_buffers: &[wgpu::VertexBufferDescriptor {
-                stride: std::mem::size_of::<Vertex>() as wgpu::BufferAddress,
-                step_mode: wgpu::InputStepMode::Vertex,
-                attributes: &[
-                    wgpu::VertexAttributeDescriptor {
-                        format: wgpu::VertexFormat::Float2,
-                        offset: 0,
-                        shader_location: 0,
-                    },
-                    wgpu::VertexAttributeDescriptor {
-                        format: wgpu::VertexFormat::Float2,
-                        offset: 8,
-                        shader_location: 1,
-                    },
-                    wgpu::VertexAttributeDescriptor {
-                        format: wgpu::VertexFormat::Float4,
-                        offset: 16,
-                        shader_location: 2,
-                    },
-                ],
-            }],
+            vertex_state: wgpu::VertexStateDescriptor {
+                index_format: wgpu::IndexFormat::Uint16,
+                vertex_buffers: &[wgpu::VertexBufferDescriptor {
+                    stride: std::mem::size_of::<Vertex>() as wgpu::BufferAddress,
+                    step_mode: wgpu::InputStepMode::Vertex,
+                    attributes: &[
+                        wgpu::VertexAttributeDescriptor {
+                            format: wgpu::VertexFormat::Float2,
+                            offset: 0,
+                            shader_location: 0,
+                        },
+                        wgpu::VertexAttributeDescriptor {
+                            format: wgpu::VertexFormat::Float2,
+                            offset: 8,
+                            shader_location: 1,
+                        },
+                        wgpu::VertexAttributeDescriptor {
+                            format: wgpu::VertexFormat::Float4,
+                            offset: 16,
+                            shader_location: 2,
+                        },
+                    ],
+                }],
+            },
             sample_count: 1,
             sample_mask: !0,
             alpha_to_coverage_enabled: false,
@@ -202,7 +208,7 @@ impl Renderer {
 
 
         let output = self.swap_chain.get_next_texture().unwrap();
-        let mut encoder = self.device.create_command_encoder(&wgpu::CommandEncoderDescriptor { todo: 0 });
+        let mut encoder = self.device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
         {
             let mut rpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 color_attachments: &[wgpu::RenderPassColorAttachmentDescriptor {
@@ -276,9 +282,9 @@ impl BufferRenderer {
         let sprite_size = (sprite.size() * 2.0).div_element_wise(self.window_size);
         
         let x = pos.x;
-        let y = pos.y;
+        let y = -pos.y;
         let s_w = sprite_size.x;
-        let s_h = sprite_size.y;
+        let s_h = -sprite_size.y;
 
         self.vertices.extend_from_slice(&[
             Vertex{pos: [x + s_w, y - s_h], uv: [pos_x + width, pos_y], overlay},
@@ -301,9 +307,9 @@ impl BufferRenderer {
         let sprite_size = size.div_element_wise(self.window_size);
         
         let x = pos.x;
-        let y = pos.y;
+        let y = -pos.y;
         let s_w = sprite_size.x;
-        let s_h = sprite_size.y;
+        let s_h = -sprite_size.y;
 
         let overlay = [1.0, 0.0, 0.0, 1.0];
 
