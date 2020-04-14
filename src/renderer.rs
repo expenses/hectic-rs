@@ -27,7 +27,12 @@ impl Renderer {
             .unwrap();
 
         let size = window.inner_size();
-        let dpi_factor = window.scale_factor() as f32;
+        // Non-integer dpi_factors (such as 1.3333334) on my laptop don't render the pixel art very well,
+        // so we floor the dpi factor and use that for the window size.
+        // TODO: fix by allowing the window to be resized with a nice fullscreen mode.
+        let dpi_factor = window.scale_factor().floor() as f32;
+        window.set_inner_size(winit::dpi::PhysicalSize { width: 480.0 * dpi_factor, height: 640.0 * dpi_factor });
+
         let surface = wgpu::Surface::create(&window);
 
         let adapter = wgpu::Adapter::request(
