@@ -27,7 +27,7 @@ impl Renderer {
             .unwrap();
 
         let size = window.inner_size();
-        let dpi_factor = indow.scale_factor() as f32
+        let dpi_factor = window.scale_factor() as f32;
         let surface = wgpu::Surface::create(&window);
 
         let adapter = wgpu::Adapter::request(
