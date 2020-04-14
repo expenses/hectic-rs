@@ -53,6 +53,13 @@ impl Renderer {
         let fs_module =
             device.create_shader_module(&wgpu::read_spirv(std::io::Cursor::new(&fs[..])).unwrap());
     
+        let font: &[u8] = include_bytes!("resources/fonts/OldeEnglish.ttf");
+
+        let mut glyph_brush = wgpu_glyph::GlyphBrushBuilder::using_font_bytes(font)
+            .unwrap()
+            .mode(wgpu_glyph::DrawMode::Pixelated(2.0))
+            .texture_filter_method(wgpu::FilterMode::Nearest)
+            .build(&device, wgpu::TextureFormat::Bgra8UnormSrgb);
 
         let mut init_encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
         let packed_texture = crate::graphics::load_packed(&device, &mut init_encoder);
@@ -186,10 +193,11 @@ impl Renderer {
             indices: Vec::new(),
             dpi_factor: window.scale_factor() as f32,
             window_size: Vector2::new(size.width as f32, size.height as f32),
+            glyph_brush,
         };
 
         let renderer = Self {
-            swap_chain, pipeline, window, device, queue, swap_chain_desc, surface, bind_group,
+            swap_chain, pipeline, window, device, queue, swap_chain_desc, surface, bind_group
         };
 
         (renderer, buffer_renderer)
@@ -224,10 +232,19 @@ impl Renderer {
             rpass.set_pipeline(&self.pipeline);
             rpass.set_bind_group(0, &self.bind_group, &[]);
 
-          rpass.set_index_buffer(&i, 0, 0);
+            rpass.set_index_buffer(&i, 0, 0);
             rpass.set_vertex_buffer(0, &v, 0, 0);
             rpass.draw_indexed(0 .. renderer.indices.len() as u32, 0, 0 .. 1);
         }
+
+        renderer.glyph_brush.draw_queued(
+            &self.device,
+            &mut encoder,
+            &output.view,
+            self.swap_chain_desc.width,
+            self.swap_chain_desc.height,
+        ).unwrap();
+
         self.queue.submit(&[encoder.finish()]);
 
         renderer.vertices.clear();
@@ -252,16 +269,12 @@ pub struct BufferRenderer {
     indices: Vec<i16>,
     dpi_factor: f32,
     window_size: Vector2<f32>,
+    glyph_brush: wgpu_glyph::GlyphBrush<'static, ()>,
 }
 
 impl Default for BufferRenderer {
     fn default() -> Self {
-        Self {
-            vertices: Vec::new(),
-            indices: Vec::new(),
-            dpi_factor: 1.0,
-            window_size: Vector2::new(0.0, 0.0),
-        }
+        unreachable!()
     }
 }
 
@@ -323,4 +336,16 @@ impl BufferRenderer {
         self.indices.extend_from_slice(&[len, len + 1, len + 2, len + 2, len + 3, len]);
     }
 
+    pub fn render_text(&mut self, text: &str, pos: Vector2<f32>) {
+        let section = wgpu_glyph::Section {
+            text,
+            screen_position: pos.into(),
+            scale: wgpu_glyph::Scale::uniform(160.0),
+            color: [1.0; 4],
+            layout: wgpu_glyph::Layout::default().h_align(wgpu_glyph::HorizontalAlign::Center),
+            ..wgpu_glyph::Section::default()
+        };
+
+        self.glyph_brush.queue(section);
+    }
 }

@@ -45,6 +45,8 @@ impl<'a> System<'a> for RenderSprite {
 
             renderer.render_sprite(*image, pos.0, overlay);
         }
+
+        renderer.render_text("Hectic", Vector2::new(WIDTH / 2.0, 0.0));
     }
 }
 
@@ -313,7 +315,7 @@ impl<'a> System<'a> for ApplyCollisions {
                         health.0 = health.0.saturating_sub(1);
     
                         if health.0 == 0 {
-                            entities.delete(*entity);
+                            entities.delete(*entity).unwrap();
                         }
                     }   
                 }
@@ -350,9 +352,9 @@ impl<'a> System<'a> for ExplosionImages {
             let index = ((time.0 - explosion.0) / 0.5 * images.len() as f32) as usize;
 
             if index < images.len() {
-                image.insert(entity, images[index]);
+                image.insert(entity, images[index]).unwrap();
             } else {
-                entities.delete(entity);
+                entities.delete(entity).unwrap();
             }
         }
     }

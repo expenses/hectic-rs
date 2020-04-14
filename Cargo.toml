@@ -17,6 +17,7 @@ futures = "0.3.4"
 cgmath = "0.17.0"
 zerocopy = "0.3.0"
 either = "1.5.3"
+wgpu_glyph = { git = "https://github.com/expenses/wgpu_glyph", branch = "pixelation" }
 
 [build-dependencies]
 yaap = { path = "yaap" }
