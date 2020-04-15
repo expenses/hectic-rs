@@ -22,7 +22,6 @@ impl Renderer {
     pub async fn new(event_loop: &EventLoop<()>) -> (Self, BufferRenderer) {
         let window = WindowBuilder::new()
             .with_inner_size(winit::dpi::LogicalSize { width: 480.0, height: 640.0 })
-            .with_resizable(false)
             .build(event_loop)
             .unwrap();
 
