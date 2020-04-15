@@ -64,7 +64,6 @@ impl Renderer {
 
         let mut glyph_brush = wgpu_glyph::GlyphBrushBuilder::using_font_bytes(font)
             .unwrap()
-            .mode(wgpu_glyph::DrawMode::Pixelated(2.0 * dpi_factor))
             .texture_filter_method(wgpu::FilterMode::Nearest)
             .build(&device, wgpu::TextureFormat::Bgra8UnormSrgb);
 
@@ -289,18 +288,22 @@ impl BufferRenderer {
         self.window_size = Vector2::new(width as f32, height as f32);
     }
 
+    pub fn scale_factor(&self) -> f32 {
+        self.window_size.y / crate::HEIGHT
+    }
+
     pub fn render_sprite(&mut self, sprite: Image, pos: Vector2<f32>, overlay: [f32; 4]) {
         let len = self.vertices.len() as i16;
         let (pos_x, pos_y, width, height) = sprite.coordinates();
 
         // dpi factor?
-        let pos = pos * 2.0 * self.dpi_factor;
+        let pos = pos * 2.0 * self.scale_factor();
         let pos = pos - self.window_size;
         let pos = pos.div_element_wise(self.window_size);
 
         let sprite_size = (sprite.size() * 2.0)
             .div_element_wise(self.window_size)
-            * self.dpi_factor;
+            * self.scale_factor();
         
         let x = pos.x;
         let y = -pos.y;
@@ -317,15 +320,20 @@ impl BufferRenderer {
         self.indices.extend_from_slice(&[len, len + 1, len + 2, len + 2, len + 3, len]);
     }
 
-    pub fn render_box(&mut self, mut pos: Vector2<f32>, size: Vector2<f32>) {
+    pub fn render_box(&mut self, pos: Vector2<f32>, mut size: Vector2<f32>) {
         let len = self.vertices.len() as i16;
 
+        size.x = size.x.max(2.0);
+        size.y = size.y.max(2.0);
+
         // dpi factor?
-        pos *= 2.0;
+        let pos = pos * 2.0 * self.scale_factor();
         let pos = pos - self.window_size;
         let pos = pos.div_element_wise(self.window_size);
 
-        let sprite_size = size.div_element_wise(self.window_size);
+        let sprite_size = size
+            .div_element_wise(self.window_size)
+            * self.scale_factor();
         
         let x = pos.x;
         let y = -pos.y;
@@ -347,10 +355,11 @@ impl BufferRenderer {
     pub fn render_text(&mut self, text: &str, pos: Vector2<f32>) {
         let section = wgpu_glyph::Section {
             text,
-            screen_position: (pos * self.dpi_factor).into(),
-            scale: wgpu_glyph::Scale::uniform(160.0 * self.dpi_factor),
+            screen_position: (pos * self.scale_factor()).into(),
+            scale: wgpu_glyph::Scale::uniform(160.0 * self.scale_factor()),
             color: [1.0; 4],
             layout: wgpu_glyph::Layout::default().h_align(wgpu_glyph::HorizontalAlign::Center),
+            custom: wgpu_glyph::DrawMode::pixelated(2.0 * self.scale_factor()),
             ..wgpu_glyph::Section::default()
         };
 
