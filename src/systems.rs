@@ -45,9 +45,6 @@ impl<'a> System<'a> for RenderSprite {
 
             renderer.render_sprite(*image, pos.0, overlay);
         }
-
-        renderer.render_text("Hectic", Vector2::new(WIDTH / 2.0, 0.0), 0);
-        renderer.render_text("Hectic", Vector2::new(0.0, 0.0), 1);
     }
 }
 
@@ -62,6 +59,19 @@ impl<'a> System<'a> for RenderHitboxes {
         }
     }
 }
+
+pub struct RenderText;
+
+impl<'a> System<'a> for RenderText {
+    type SystemData = (ReadStorage<'a, Position>, ReadStorage<'a, Text>, Write<'a, Renderer>);
+
+    fn run(&mut self, (pos, text, mut renderer): Self::SystemData) {
+        for (pos, text) in (&pos, &text).join() {
+            renderer.render_text(text.text, pos.0, text.font);
+        }
+    }
+}
+
 
 pub struct MoveEntities;
 

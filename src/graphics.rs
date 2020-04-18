@@ -16,7 +16,7 @@ fn load_png(bytes: &'static [u8], device: &wgpu::Device, encoder: &mut wgpu::Com
         mip_level_count: 1,
         sample_count: 1,
         dimension: wgpu::TextureDimension::D2,
-        format: wgpu::TextureFormat::Rgba8UnormSrgb,
+        format: wgpu::TextureFormat::Rgba8Unorm,
         usage: wgpu::TextureUsage::SAMPLED | wgpu::TextureUsage::COPY_DST,
         label: None,
     });
@@ -37,7 +37,15 @@ fn load_png(bytes: &'static [u8], device: &wgpu::Device, encoder: &mut wgpu::Com
         texture_extent,
     );
 
-    texture.create_default_view()
+    texture.create_view(&wgpu::TextureViewDescriptor {
+        format: wgpu::TextureFormat::Rgba8Unorm,
+        dimension: wgpu::TextureViewDimension::D2,
+        aspect: wgpu::TextureAspect::All,
+        base_mip_level: 0,
+        level_count: 1,
+        base_array_layer: 0,
+        array_layer_count: 0,
+    })
 }
 
 include!(concat!(env!("OUT_DIR"), "/image.rs"));

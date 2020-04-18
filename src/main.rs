@@ -55,6 +55,7 @@ async fn run() {
     world.register::<components::Health>();
     world.register::<components::Explosion>();
     world.register::<components::Invulnerability>();
+    world.register::<components::Text>();
 
     world.insert(resources::KeyPresses(vec![]));
     world.insert(resources::KeyboardState::default());
@@ -79,7 +80,8 @@ async fn run() {
         .with(systems::ApplyCollisions, "ApplyCollisions", &["Collisions"])
         .with(systems::ExplosionImages, "ExplosionImages", &["ApplyCollisions"])
         .with(systems::RenderSprite, "RenderSprite", &["MoveEntities", "Control", "SpawnBullets", "ExplosionImages"])
-        .with(systems::RenderHitboxes, "RenderHitboxes", &["RenderSprite"]);
+        .with(systems::RenderText, "RenderText", &["RenderSprite"]);
+        //.with(systems::RenderHitboxes, "RenderHitboxes", &["RenderSprite"]);
 
     println!("{:?}", db);
 

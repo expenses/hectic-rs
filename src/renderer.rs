@@ -16,21 +16,36 @@ pub struct Renderer {
     swap_chain_desc: wgpu::SwapChainDescriptor,
     surface: wgpu::Surface,
     bind_group: wgpu::BindGroup,
+    glyph_brush: wgpu_glyph::GlyphBrush<'static, ()>,
 }
 
 impl Renderer {
     pub async fn new(event_loop: &EventLoop<()>) -> (Self, BufferRenderer) {
         let window = WindowBuilder::new()
-            .with_inner_size(winit::dpi::LogicalSize { width: 480.0, height: 640.0 })
+            //.with_inner_size(winit::dpi::LogicalSize { width: 480.0, height: 640.0 })
+            // Debug only
+            //.with_resizable(false)
             .build(event_loop)
             .unwrap();
 
         let size = window.inner_size();
         // Non-integer dpi_factors (such as 1.3333334) on my laptop don't render the pixel art very well,
         // so we floor the dpi factor and use that for the window size.
-        // TODO: fix by allowing the window to be resized with a nice fullscreen mode.
         let dpi_factor = window.scale_factor().floor() as f32;
-        window.set_inner_size(winit::dpi::PhysicalSize { width: 480.0 * dpi_factor, height: 640.0 * dpi_factor });
+        window.set_min_inner_size(Some(winit::dpi::PhysicalSize { width: 480.0 * dpi_factor, height: 640.0 * dpi_factor }));
+
+        #[cfg(feature = "wasm")]
+        {
+            use winit::platform::web::WindowExtWebSys;
+            web_sys::window()
+                .and_then(|win| win.document())
+                .and_then(|doc| doc.body())
+                .and_then(|body| {
+                    body.append_child(&web_sys::Element::from(window.canvas()))
+                        .ok()
+                })
+                .expect("couldn't append canvas to document body");
+        }
 
         let surface = wgpu::Surface::create(&window);
 
@@ -59,16 +74,18 @@ impl Renderer {
         let fs_module =
             device.create_shader_module(&wgpu::read_spirv(std::io::Cursor::new(&fs[..])).unwrap());
     
-        let font: &[u8] = include_bytes!("resources/fonts/OldeEnglish.ttf");
+        let fonts: &[&[u8]] = &[
+            include_bytes!("resources/fonts/OldeEnglish.ttf"),
+            include_bytes!("resources/fonts/TinyUnicode.ttf")
+        ];
 
-        let mut glyph_brush = wgpu_glyph::GlyphBrushBuilder::using_font_bytes(font)
+        let glyph_brush = wgpu_glyph::GlyphBrushBuilder::using_fonts_bytes(fonts)
             .unwrap()
             .texture_filter_method(wgpu::FilterMode::Nearest)
-            .build(&device, wgpu::TextureFormat::Bgra8UnormSrgb);
+            .build(&device, wgpu::TextureFormat::Bgra8Unorm);
 
         let mut init_encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
         let packed_texture = crate::graphics::load_packed(&device, &mut init_encoder);
-
         let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
             address_mode_u: wgpu::AddressMode::Repeat,
             address_mode_v: wgpu::AddressMode::Repeat,
@@ -146,9 +163,9 @@ impl Renderer {
             }),
             primitive_topology: wgpu::PrimitiveTopology::TriangleList,
             color_states: &[wgpu::ColorStateDescriptor {
-                format: wgpu::TextureFormat::Bgra8UnormSrgb,
-                color_blend: blend_descriptor,
-                alpha_blend: wgpu::BlendDescriptor::REPLACE,
+                format: wgpu::TextureFormat::Bgra8Unorm,
+                color_blend: blend_descriptor.clone(),
+                alpha_blend: blend_descriptor,
                 write_mask: wgpu::ColorWrite::ALL,
             }],
             depth_stencil_state: None,
@@ -196,12 +213,12 @@ impl Renderer {
         let buffer_renderer = BufferRenderer {
             vertices: Vec::new(),
             indices: Vec::new(),
+            glyph_sections: Vec::new(),
             window_size: Vector2::new(size.width as f32, size.height as f32),
-            glyph_brush, dpi_factor,
         };
 
         let renderer = Self {
-            swap_chain, pipeline, window, device, queue, swap_chain_desc, surface, bind_group
+            swap_chain, pipeline, window, device, queue, swap_chain_desc, surface, bind_group, glyph_brush,
         };
 
         (renderer, buffer_renderer)
@@ -226,7 +243,7 @@ impl Renderer {
                     resolve_target: None,
                     load_op: wgpu::LoadOp::Clear,
                     store_op: wgpu::StoreOp::Store,
-                    clear_color: wgpu::Color::BLACK,
+                    clear_color: wgpu::Color::GREEN,
                 }],
                 depth_stencil_attachment: None,
             });
@@ -356,7 +373,7 @@ impl BufferRenderer {
 
     pub fn render_text(&mut self, text: &'static str, pos: Vector2<f32>, font: usize) {
         let scale = match font {
-            0 => 160.0,
+            0 => 80.0,
             1 => 32.0,
             _ => unreachable!()
         };
@@ -366,7 +383,7 @@ impl BufferRenderer {
             screen_position: (pos * self.scale_factor()).into(),
             scale: wgpu_glyph::Scale::uniform(scale * self.scale_factor()),
             color: [1.0; 4],
-            layout: wgpu_glyph::Layout::default().h_align(wgpu_glyph::HorizontalAlign::Center),
+            layout: wgpu_glyph::Layout::default_single_line().h_align(wgpu_glyph::HorizontalAlign::Center),
             custom: wgpu_glyph::DrawMode::pixelated(2.0 * self.scale_factor()),
             
             font_id: wgpu_glyph::FontId(font),

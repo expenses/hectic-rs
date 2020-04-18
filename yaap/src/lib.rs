@@ -45,7 +45,7 @@ pub fn pack(
             &rectangle_pack::contains_smallest_box
         ).ok();
 
-        size += 1;
+        size += 64;
     }
 
     let placements = placements.unwrap();

@@ -26,18 +26,11 @@ pub fn stage_one(mut world: &mut World) {
         .with(components::BackgroundLayer)
         .build();
 
-    for i in -10 .. 10 {
-        for j in -10 .. 10 {
-            let mut pos = middle;
-            pos.x += i as f32 * 64.0;
-            pos.y += j as f32 * 64.0;
-    
-            world.create_entity()
-                .with(components::Position(pos))
-                .with(components::Image::from(graphics::Image::Rain))
-                .build();
-        }
-    }
+    world.create_entity()
+        .with(components::Text { text: "Stage One", font: 0})
+        .with(components::Position(Vector2::new(WIDTH / 2.0, 40.0)))
+        .with(components::Movement::Falling(0.0))
+        .build();
 
     create_players(&mut world, false);
 

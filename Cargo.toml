@@ -7,17 +7,44 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-specs = { version = "0.16.1", default-features = false, features = ["specs-derive", "parallel"] }
-winit = "0.22.0"
-image = { version = "0.23.3", default-features = false, features = ["png"] }
-rand = "0.7.3"
-arrayvec = "0.5.1"
+specs = { version = "0.16.1", default-features = false, features = ["specs-derive"] }
+winit = { version = "0.22.1", features = ["web-sys"] }
 wgpu = "0.5.0"
+image = { version = "0.23.3", default-features = false, features = ["png"] }
+rand = { version = "0.7.3", features = ["wasm-bindgen"] }
+arrayvec = "0.5.1"
 futures = "0.3.4"
 cgmath = "0.17.0"
 zerocopy = "0.3.0"
 either = "1.5.3"
-wgpu_glyph = { git = "https://github.com/expenses/wgpu_glyph", branch = "pixelation" }
+wgpu_glyph = { path = "wgpu_glyph" }
+env_logger = "0.7.1"
+console_error_panic_hook = { version = "0.1.6", optional = true }
+web-sys = { version = "0.3.37", optional = true }
+wasm-bindgen-futures = { version = "0.4.10", optional = true }
+log = "0.4.8"
+console_log = "0.1.2"
 
 [build-dependencies]
 yaap = { path = "yaap" }
+
+[features]
+default = ["native"]
+wasm = [
+    "console_error_panic_hook",
+    "web-sys",
+    "wasm-bindgen-futures",
+    "rand/wasm-bindgen",
+    "specs/wasm-bindgen",
+]
+native = ["specs/parallel"]
+
+#[patch.'https://github.com/expenses/glyph-brush']
+#glyph_brush = { path = "glyph-brush/glyph-brush" }
+
+[patch.crates-io]
+wgpu = { path = "../wgpu-rs" }
+wasm-bindgen = { git = "https://github.com/rustwasm/wasm-bindgen" }
+wasm-bindgen-futures = { git = "https://github.com/rustwasm/wasm-bindgen" }
+web-sys = { git = "https://github.com/rustwasm/wasm-bindgen" }
+js-sys = { git = "https://github.com/rustwasm/wasm-bindgen" }

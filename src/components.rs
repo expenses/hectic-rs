@@ -88,6 +88,12 @@ pub struct BeenOnscreen;
 pub struct FrozenUntil(pub f32);
 
 #[derive(Component)]
+pub struct Text {
+    pub text: &'static str,
+    pub font: usize,
+}
+
+#[derive(Component)]
 pub struct FiresBullets {
     pub image: Image,
     pub speed: f32,
