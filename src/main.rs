@@ -19,9 +19,24 @@ static GLOBAL: System = System;
 
 
 fn main() {
+    #[cfg(feature = "wasm")]
+    wasm_bindgen_futures::spawn_local(run());
+    #[cfg(feature = "native")]
+    futures::executor::block_on(run());
+}
+
+async fn run() {
+    #[cfg(feature = "wasm")]
+    {
+        console_error_panic_hook::set_once();
+        console_log::init_with_level(log::Level::Trace).unwrap();
+    }
+    #[cfg(feature = "native")]
+    env_logger::init();
+
     let event_loop = EventLoop::new();
 
-    let (mut renderer, buffer_renderer) = futures::executor::block_on(renderer::Renderer::new(&event_loop));
+    let (mut renderer, buffer_renderer) = renderer::Renderer::new(&event_loop).await;
 
     let mut world = World::new();
     world.register::<components::Position>();

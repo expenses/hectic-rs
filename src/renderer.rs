@@ -76,8 +76,8 @@ impl Renderer {
             mag_filter: wgpu::FilterMode::Nearest,
             min_filter: wgpu::FilterMode::Nearest,
             mipmap_filter: wgpu::FilterMode::Nearest,
-            lod_min_clamp: -100.0,
-            lod_max_clamp: 100.0,
+            lod_min_clamp: 0.0,
+            lod_max_clamp: 0.0,
             compare: wgpu::CompareFunction::Undefined,
         });
 
@@ -90,7 +90,7 @@ impl Renderer {
                         ty: wgpu::BindingType::SampledTexture {
                             multisampled: false,
                             dimension: wgpu::TextureViewDimension::D2,
-                            component_type: wgpu::TextureComponentType::Uint,
+                            component_type: wgpu::TextureComponentType::Float,
                         },
                     },
                     wgpu::BindGroupLayoutEntry {
@@ -183,7 +183,7 @@ impl Renderer {
     
         let swap_chain_desc = wgpu::SwapChainDescriptor {
             usage: wgpu::TextureUsage::OUTPUT_ATTACHMENT,
-            format: wgpu::TextureFormat::Bgra8UnormSrgb,
+            format: wgpu::TextureFormat::Bgra8Unorm,
             width: size.width,
             height: size.height,
             present_mode: wgpu::PresentMode::Fifo,
@@ -214,10 +214,8 @@ impl Renderer {
     }
 
     pub fn render(&mut self, renderer: &mut BufferRenderer) {
-        
         let v = self.device.create_buffer_with_data(renderer.vertices.as_bytes(), wgpu::BufferUsage::VERTEX);
         let i = self.device.create_buffer_with_data(renderer.indices.as_bytes(), wgpu::BufferUsage::INDEX);
-
 
         let output = self.swap_chain.get_next_texture().unwrap();
         let mut encoder = self.device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
@@ -241,7 +239,10 @@ impl Renderer {
             rpass.draw_indexed(0 .. renderer.indices.len() as u32, 0, 0 .. 1);
         }
 
-        renderer.glyph_brush.draw_queued(
+        for section in renderer.glyph_sections.drain(..) {
+            self.glyph_brush.queue(section);
+        }
+        self.glyph_brush.draw_queued(
             &self.device,
             &mut encoder,
             &output.view,
@@ -271,9 +272,10 @@ pub struct Vertex {
 pub struct BufferRenderer {
     vertices: Vec<Vertex>,
     indices: Vec<i16>,
-    dpi_factor: f32,
     window_size: Vector2<f32>,
-    glyph_brush: wgpu_glyph::GlyphBrush<'static, ()>,
+    // We can't store a GlyphBrush directly here because on wasm the buffer
+    // is a js type and thus not threadsafe.
+    glyph_sections: Vec<wgpu_glyph::Section<'static, wgpu_glyph::DrawMode>>,
 }
 
 impl Default for BufferRenderer {
@@ -288,7 +290,8 @@ impl BufferRenderer {
     }
 
     pub fn scale_factor(&self) -> f32 {
-        self.window_size.y / crate::HEIGHT
+        (self.window_size.y / crate::HEIGHT)
+            .min(self.window_size.x / crate::WIDTH)
     }
 
     pub fn render_sprite(&mut self, sprite: Image, pos: Vector2<f32>, overlay: [f32; 4]) {
@@ -351,17 +354,25 @@ impl BufferRenderer {
         self.indices.extend_from_slice(&[len, len + 1, len + 2, len + 2, len + 3, len]);
     }
 
-    pub fn render_text(&mut self, text: &str, pos: Vector2<f32>) {
+    pub fn render_text(&mut self, text: &'static str, pos: Vector2<f32>, font: usize) {
+        let scale = match font {
+            0 => 160.0,
+            1 => 32.0,
+            _ => unreachable!()
+        };
+
         let section = wgpu_glyph::Section {
             text,
             screen_position: (pos * self.scale_factor()).into(),
-            scale: wgpu_glyph::Scale::uniform(160.0 * self.scale_factor()),
+            scale: wgpu_glyph::Scale::uniform(scale * self.scale_factor()),
             color: [1.0; 4],
             layout: wgpu_glyph::Layout::default().h_align(wgpu_glyph::HorizontalAlign::Center),
             custom: wgpu_glyph::DrawMode::pixelated(2.0 * self.scale_factor()),
+            
+            font_id: wgpu_glyph::FontId(font),
             ..wgpu_glyph::Section::default()
         };
 
-        self.glyph_brush.queue(section);
+        self.glyph_sections.push(section);
     }
 }

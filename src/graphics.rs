@@ -3,7 +3,7 @@ fn load_png(bytes: &'static [u8], device: &wgpu::Device, encoder: &mut wgpu::Com
         .into_rgba();
 
     let temp_buf =
-        device.create_buffer_with_data( &*image, wgpu::BufferUsage::COPY_SRC);
+        device.create_buffer_with_data(&*image, wgpu::BufferUsage::COPY_SRC);
 
     let texture_extent = wgpu::Extent3d {
         width: image.width(),
@@ -13,7 +13,6 @@ fn load_png(bytes: &'static [u8], device: &wgpu::Device, encoder: &mut wgpu::Com
 
     let texture = device.create_texture(&wgpu::TextureDescriptor {
         size: texture_extent,
-        array_layer_count: 1,
         mip_level_count: 1,
         sample_count: 1,
         dimension: wgpu::TextureDimension::D2,
@@ -22,13 +21,12 @@ fn load_png(bytes: &'static [u8], device: &wgpu::Device, encoder: &mut wgpu::Com
         label: None,
     });
 
-
     encoder.copy_buffer_to_texture(
         wgpu::BufferCopyView {
             buffer: &temp_buf,
             offset: 0,
             bytes_per_row: 4 * image.width(),
-            rows_per_image: image.height(),
+            rows_per_image: 0,
         },
         wgpu::TextureCopyView {
             texture: &texture,

@@ -46,7 +46,8 @@ impl<'a> System<'a> for RenderSprite {
             renderer.render_sprite(*image, pos.0, overlay);
         }
 
-        renderer.render_text("Hectic", Vector2::new(WIDTH / 2.0, 0.0));
+        renderer.render_text("Hectic", Vector2::new(WIDTH / 2.0, 0.0), 0);
+        renderer.render_text("Hectic", Vector2::new(0.0, 0.0), 1);
     }
 }
 
