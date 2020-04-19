@@ -1,16 +1,8 @@
-<!DOCTYPE html>
 <html>
-  <head>
-	<meta http-equiv="Content-type" content="text/html; charset=utf-8"/>
-	<script type="module">
-import { default as init } from './pkg/hectic-rs.js';
-
-async function start() {
-	await init('./pkg/hectic-rs_bg.wasm');
-}
-
-start();
-	</script>
-  </head>
-  <body style="white-space: pre"></body>
+  <body>
+    <script type="module">
+      import init from "./pkg/hectic-rs.js";
+      init();
+    </script>
+  </body>
 </html>
