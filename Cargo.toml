@@ -14,7 +14,7 @@ image = { version = "0.23.3", default-features = false, features = ["png"] }
 rand = { version = "0.7.3", features = ["wasm-bindgen"] }
 arrayvec = "0.5.1"
 futures = "0.3.4"
-cgmath = "0.17.0"
+cgmath = { version = "0.17.0", features = ["serde"] }
 zerocopy = "0.3.0"
 either = "1.5.3"
 wgpu_glyph = { path = "wgpu_glyph" }
@@ -24,6 +24,11 @@ web-sys = { version = "0.3.37", optional = true }
 wasm-bindgen-futures = { version = "0.4.10", optional = true }
 log = "0.4.8"
 console_log = "0.1.2"
+laminar = "0.3.2"
+structopt = "0.3.14"
+serde = { version = "1.0.106", features = ["derive"] }
+bincode = "1.2.1"
+crossbeam-channel = "0.3.9"
 
 [build-dependencies]
 yaap = { path = "yaap" }

@@ -6,7 +6,7 @@ use winit::event::VirtualKeyCode;
 use crate::{WIDTH, HEIGHT};
 use crate::graphics::Image as GraphicsImage;
 
-#[derive(Component, Clone, Copy)]
+#[derive(Component, Clone, Copy, serde::Serialize, serde::Deserialize)]
 pub struct Image(u16);
 
 impl Image {
