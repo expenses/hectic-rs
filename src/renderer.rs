@@ -231,8 +231,14 @@ impl Renderer {
     }
 
     pub fn render(&mut self, renderer: &mut BufferRenderer) {
-        let v = self.device.create_buffer_with_data(renderer.vertices.as_bytes(), wgpu::BufferUsage::VERTEX);
-        let i = self.device.create_buffer_with_data(renderer.indices.as_bytes(), wgpu::BufferUsage::INDEX);
+        let buffers = if !renderer.vertices.is_empty() {
+            Some((
+                self.device.create_buffer_with_data(renderer.vertices.as_bytes(), wgpu::BufferUsage::VERTEX),
+                self.device.create_buffer_with_data(renderer.indices.as_bytes(), wgpu::BufferUsage::INDEX)
+            ))
+        } else {
+            None
+        };
 
         let output = self.swap_chain.get_next_texture().unwrap();
         let mut encoder = self.device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
@@ -248,12 +254,14 @@ impl Renderer {
                 depth_stencil_attachment: None,
             });
 
-            rpass.set_pipeline(&self.pipeline);
-            rpass.set_bind_group(0, &self.bind_group, &[]);
+            if let Some((vertices, indices)) = &buffers {
+                rpass.set_pipeline(&self.pipeline);
+                rpass.set_bind_group(0, &self.bind_group, &[]);
 
-            rpass.set_index_buffer(&i, 0, 0);
-            rpass.set_vertex_buffer(0, &v, 0, 0);
-            rpass.draw_indexed(0 .. renderer.indices.len() as u32, 0, 0 .. 1);
+                rpass.set_index_buffer(indices, 0, 0);
+                rpass.set_vertex_buffer(0, vertices, 0, 0);
+                rpass.draw_indexed(0 .. renderer.indices.len() as u32, 0, 0 .. 1);
+            }
         }
 
         for section in renderer.glyph_sections.drain(..) {

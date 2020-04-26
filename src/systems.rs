@@ -37,11 +37,10 @@ impl<'a> System<'a> for RenderSprite {
 
     fn run(&mut self, (entities, pos, image, invul, time, mut renderer): Self::SystemData) {
         for (entity, pos, image) in (&entities, &pos, &image).join() {
-            let overlay = if invul.get(entity).map(|invul| invul.is_invul(time.0)).unwrap_or(false) {
-                [1.0, 1.0, 1.0, 0.2]
-            } else {
-                [0.0; 4]
-            };
+            let overlay = invul.get(entity)
+                .filter(|invul| invul.is_invul(time.0))
+                .map(|_| [1.0, 1.0, 1.0, 0.2])
+                .unwrap_or([0.0; 4]);
 
             renderer.render_sprite(*image, pos.0, overlay);
         }

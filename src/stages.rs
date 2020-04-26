@@ -98,7 +98,7 @@ fn float_iter(start: f32, end: f32, step: f32) -> impl Iterator<Item = f32> {
         .take_while(move |item| *item < end)
 }
 
-fn create_players(mut world: &mut World, two_players: bool) {
+fn create_players(world: &mut World, two_players: bool) {
     let middle = Vector2::new(WIDTH / 2.0, HEIGHT / 2.0);
 
     if two_players {
