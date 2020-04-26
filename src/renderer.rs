@@ -75,8 +75,8 @@ impl Renderer {
             device.create_shader_module(&wgpu::read_spirv(std::io::Cursor::new(&fs[..])).unwrap());
     
         let fonts: &[&[u8]] = &[
-            include_bytes!("resources/fonts/OldeEnglish.ttf"),
-            include_bytes!("resources/fonts/TinyUnicode.ttf")
+            include_bytes!("fonts/OldeEnglish.ttf"),
+            include_bytes!("fonts/TinyUnicode.ttf")
         ];
 
         let glyph_brush = wgpu_glyph::GlyphBrushBuilder::using_fonts_bytes(fonts)
