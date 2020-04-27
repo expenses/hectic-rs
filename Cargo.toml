@@ -39,11 +39,7 @@ wasm = [
 ]
 native = ["specs/parallel"]
 
-#[patch.'https://github.com/expenses/glyph-brush']
-#glyph_brush = { path = "glyph-brush/glyph-brush" }
-
 [patch.crates-io]
 wasm-bindgen = { git = "https://github.com/rustwasm/wasm-bindgen" }
-wasm-bindgen-futures = { git = "https://github.com/rustwasm/wasm-bindgen" }
 web-sys = { git = "https://github.com/rustwasm/wasm-bindgen" }
 js-sys = { git = "https://github.com/rustwasm/wasm-bindgen" }

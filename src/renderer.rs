@@ -47,9 +47,12 @@ impl Renderer {
                 .expect("couldn't append canvas to document body");
         }
 
-        let surface = wgpu::Surface::create(&window);
+        let instance = wgpu::Instance::new();
+        let surface = unsafe {
+            instance.create_surface(&window)
+        };
 
-        let adapter = wgpu::Adapter::request(
+        let adapter = instance.request_adapter(
             &wgpu::RequestAdapterOptions {
                 power_preference: wgpu::PowerPreference::Default,
                 compatible_surface: None,
@@ -64,7 +67,7 @@ impl Renderer {
                 anisotropic_filtering: false,
             },
             limits: wgpu::Limits::default(),
-        }).await;
+        }).await.unwrap();
 
         let vs = include_bytes!("shader.vert.spv");
         let vs_module =
@@ -208,7 +211,7 @@ impl Renderer {
     
         let swap_chain = device.create_swap_chain(&surface, &swap_chain_desc);
 
-        queue.submit(&[init_encoder.finish()]);
+        queue.submit(Some(init_encoder.finish()));
 
         let buffer_renderer = BufferRenderer {
             vertices: Vec::new(),
@@ -275,7 +278,7 @@ impl Renderer {
             self.swap_chain_desc.height,
         ).unwrap();
 
-        self.queue.submit(&[encoder.finish()]);
+        self.queue.submit(Some(encoder.finish()));
 
         renderer.vertices.clear();
         renderer.indices.clear();
