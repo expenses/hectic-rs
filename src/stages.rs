@@ -27,7 +27,7 @@ pub fn stage_one(mut world: &mut World) {
         .build();
 
     world.create_entity()
-        .with(components::Text { text: "Stage One", font: 0})
+        .with(components::Text { text: "Stage\nOne", font: 0, layout: wgpu_glyph::Layout::default().h_align(wgpu_glyph::HorizontalAlign::Center) })
         .with(components::Position(Vector2::new(WIDTH / 2.0, 40.0)))
         .with(components::Movement::Falling(0.0))
         .build();

@@ -91,6 +91,7 @@ pub struct FrozenUntil(pub f32);
 pub struct Text {
     pub text: &'static str,
     pub font: usize,
+    pub layout: wgpu_glyph::Layout<wgpu_glyph::BuiltInLineBreaker>,
 }
 
 #[derive(Component)]

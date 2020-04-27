@@ -4,7 +4,7 @@ use winit::{
 };
 
 use cgmath::*;
-use crate::components::Image;
+use crate::components::{Image, Text};
 use zerocopy::*;
 
 pub struct Renderer {
@@ -268,7 +268,8 @@ impl Renderer {
         }
 
         for section in renderer.glyph_sections.drain(..) {
-            self.glyph_brush.queue(section);
+            let layout = wgpu_glyph::PixelPositioner(section.layout);
+            self.glyph_brush.queue_custom_layout(section, &layout);
         }
         self.glyph_brush.draw_queued(
             &self.device,
@@ -382,22 +383,22 @@ impl BufferRenderer {
         self.indices.extend_from_slice(&[len, len + 1, len + 2, len + 2, len + 3, len]);
     }
 
-    pub fn render_text(&mut self, text: &'static str, pos: Vector2<f32>, font: usize) {
-        let scale = match font {
-            0 => 80.0,
-            1 => 32.0,
+    pub fn render_text(&mut self, text: &Text, pos: Vector2<f32>) {
+        let scale = match text.font {
+            0 => 160.0,
+            1 => 24.0,
             _ => unreachable!()
         };
 
         let section = wgpu_glyph::Section {
-            text,
+            text: text.text,
             screen_position: (pos * self.scale_factor()).into(),
             scale: wgpu_glyph::Scale::uniform(scale * self.scale_factor()),
             color: [1.0; 4],
-            layout: wgpu_glyph::Layout::default_single_line().h_align(wgpu_glyph::HorizontalAlign::Center),
+            layout: text.layout,
             custom: wgpu_glyph::DrawMode::pixelated(2.0 * self.scale_factor()),
             
-            font_id: wgpu_glyph::FontId(font),
+            font_id: wgpu_glyph::FontId(text.font),
             ..wgpu_glyph::Section::default()
         };
 

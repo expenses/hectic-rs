@@ -66,7 +66,7 @@ impl<'a> System<'a> for RenderText {
 
     fn run(&mut self, (pos, text, mut renderer): Self::SystemData) {
         for (pos, text) in (&pos, &text).join() {
-            renderer.render_text(text.text, pos.0, text.font);
+            renderer.render_text(text, pos.0);
         }
     }
 }
