@@ -102,6 +102,9 @@ pub struct FiresBullets {
 }
 
 #[derive(Component)]
+pub struct TargetPlayer(pub f32);
+
+#[derive(Component)]
 pub struct Cooldown {
     cooldown_time: f32,
     last_fired: f32,

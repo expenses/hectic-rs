@@ -34,3 +34,13 @@ pub struct Damage {
     pub enemy: specs::Entity,
     pub position: Vector2<f32>,
 }
+
+#[derive(Default)]
+pub struct PlayerPositions(pub Vec<Vector2<f32>>);
+
+impl PlayerPositions {
+    pub fn random(&self, rng: &mut rand::rngs::ThreadRng) -> Vector2<f32> {
+        let index = rng.gen_range(0, self.0.len());
+        self.0[index]
+    }
+}

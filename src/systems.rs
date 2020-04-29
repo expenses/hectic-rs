@@ -186,6 +186,48 @@ impl<'a> System<'a> for TickTime {
     } 
 }
 
+pub struct StartTowardsPlayer;
+
+impl<'a> System<'a> for StartTowardsPlayer {
+    type SystemData = (
+        Entities<'a>,
+        ReadStorage<'a, FrozenUntil>, ReadStorage<'a, Position>,
+        WriteStorage<'a, TargetPlayer>, WriteStorage<'a, Movement>,
+        Read<'a, PlayerPositions>,
+    );
+
+    fn run(&mut self, (entities, frozen, pos, mut target, mut movement, player_positions): Self::SystemData) {
+        let mut rng = rand::thread_rng();
+        
+        for (entity, target, pos, _) in (&entities, target.entries(), &pos, !&frozen).join() {
+            if let specs::storage::StorageEntry::Occupied(target) = target {
+                let speed = target.get().0;
+                target.remove();
+
+                let player = player_positions.random(&mut rng);
+                let rotation = (player.y - pos.0.y).atan2(player.x - pos.0.x);
+
+                movement.insert(entity, Movement::Linear(Vector2::new(rotation.cos() * speed, rotation.sin() * speed)))
+                    .unwrap();
+            }
+        }
+    }
+}
+
+pub struct SetPlayerPositions;
+
+impl<'a> System<'a> for SetPlayerPositions {
+    type SystemData = (ReadStorage<'a, Position>, ReadStorage<'a, Player>, Write<'a, PlayerPositions>);
+
+    fn run(&mut self, (pos, player, mut positions): Self::SystemData) {
+        positions.0.clear();
+
+        for (pos, _) in (&pos, &player).join() {
+            positions.0.push(pos.0);
+        }
+    }
+}
+
 pub struct KillOffscreen;
 
 impl<'a> System<'a> for KillOffscreen {
@@ -222,21 +264,19 @@ fn is_onscreen(pos: &Position, image: Image) -> bool {
 pub struct FireBullets;
 
 impl<'a> System<'a> for FireBullets {
-    type SystemData = (ReadStorage<'a, Position>, ReadStorage<'a, Controllable>, ReadStorage<'a, FiresBullets>, WriteStorage<'a, Cooldown>, Write<'a, BulletSpawner>, Read<'a, GameTime>);
+    type SystemData = (
+        ReadStorage<'a, Position>, ReadStorage<'a, FiresBullets>, WriteStorage<'a, Cooldown>, ReadStorage<'a, FrozenUntil>,
+        Write<'a, BulletSpawner>, Read<'a, GameTime>, Read<'a, PlayerPositions>,
+    );
 
-    fn run(&mut self, (pos, controllable, fires, mut cooldown, mut spawner, time): Self::SystemData) {
-        let player_positions = (&pos, &controllable).join()
-            .map(|(pos, _)| pos.0)
-            .collect::<Vec<_>>();
-
+    fn run(&mut self, (pos, fires, mut cooldown, frozen, mut spawner, time, player_positions): Self::SystemData) {
         let mut rng = rand::thread_rng();
 
-        for (pos, fires, mut cooldown) in (&pos, &fires, &mut cooldown).join() {
+        for (pos, fires, mut cooldown, _) in (&pos, &fires, &mut cooldown, !&frozen).join() {
             if cooldown.is_ready(time.0) {
                 match fires.method {
                     FiringMethod::AtPlayer(total, spread) => {
-                        let player = rng.gen_range(0, player_positions.len());
-                        let player = player_positions[player];
+                        let player = player_positions.random(&mut rng);
 
                         // Get the rotation to the player
                         let rotation = (player.y - pos.0.y).atan2(player.x - pos.0.x);

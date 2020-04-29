@@ -56,6 +56,7 @@ async fn run() {
     world.register::<components::Explosion>();
     world.register::<components::Invulnerability>();
     world.register::<components::Text>();
+    world.register::<components::TargetPlayer>();
 
     world.insert(resources::KeyPresses(vec![]));
     world.insert(resources::KeyboardState::default());
@@ -63,18 +64,22 @@ async fn run() {
     world.insert(resources::GameTime(0.0));
     world.insert(resources::BulletSpawner::default());
     world.insert(resources::DamageTracker::default());
+    world.insert(resources::PlayerPositions::default());
 
     stages::stage_one(&mut world);
+    stages::stage_two(&mut world);
     
     let db = DispatcherBuilder::new()
         .with(systems::KillOffscreen, "KillOffscreen", &[])
         .with(systems::MoveEntities, "MoveEntities", &[])
         .with(systems::HandleKeypresses, "HandleKeypresses", &[])
         .with(systems::Control, "Control", &[])
+        .with(systems::SetPlayerPositions, "SetPlayerPositions", &[])
         .with(systems::FireBullets, "FireBullets", &[])
         .with(systems::SpawnBullets, "SpawnBullets", &[])
         .with(systems::RepeatBackgroundLayers, "RepeatBackgroundLayers", &[])
         .with(systems::TickTime, "TickTime", &[])
+        .with(systems::StartTowardsPlayer, "StartTowardsPlayer", &["TickTime"])
         .with(systems::AddOnscreen, "AddOnscreen", &[])
         .with(systems::Collisions, "Collisions", &[])
         .with(systems::ApplyCollisions, "ApplyCollisions", &["Collisions"])
@@ -83,7 +88,7 @@ async fn run() {
         .with(systems::RenderText, "RenderText", &["RenderSprite"]);
         //.with(systems::RenderHitboxes, "RenderHitboxes", &["RenderSprite"]);
 
-    println!("{:?}", db);
+    log::debug!("{:?}", db);
 
     let mut dispatcher = db.build();
 
