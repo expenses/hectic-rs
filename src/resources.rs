@@ -27,4 +27,10 @@ pub struct BulletToBeSpawned {
 }
 
 #[derive(Default)]
-pub struct DamageTracker(pub Vec<(specs::Entity, specs::Entity, Vector2<f32>)>);
+pub struct DamageTracker(pub Vec<Damage>);
+
+pub struct Damage {
+    pub friendly: specs::Entity,
+    pub enemy: specs::Entity,
+    pub position: Vector2<f32>,
+}

@@ -289,19 +289,25 @@ pub struct Collisions;
 
 impl<'a> System<'a> for Collisions {
     type SystemData = (
-        Entities<'a>, ReadStorage<'a, Position>, ReadStorage<'a, Friendly>, ReadStorage<'a, Enemy>, ReadStorage<'a, Hitbox>, ReadStorage<'a, FrozenUntil>,
+        Entities<'a>,
+        ReadStorage<'a, Position>, ReadStorage<'a, Friendly>, ReadStorage<'a, Enemy>, ReadStorage<'a, Hitbox>,
+        ReadStorage<'a, FrozenUntil>,
         Write<'a, DamageTracker>,
     );
 
     fn run(&mut self, (entities, pos, friendly, enemy, hitbox, frozen, mut damage_tracker): Self::SystemData) {
         (&entities, &pos, &hitbox, &friendly).join()
-            .flat_map(|entity_a| {
+            .flat_map(|friendly| {
                 (&entities, &pos, &hitbox, !&frozen, &enemy).join()
-                    .map(move |entity_b| (entity_a, entity_b))
+                    .map(move |enemy| (friendly, enemy))
             })
-            .for_each(|((entity_a, pos_a, hitbox_a, _), (entity_b, pos_b, hitbox_b, _, _))| {
-                if let Some(hit_pos) = is_touching(pos_a.0, hitbox_a.0, pos_b.0, hitbox_b.0) {
-                    damage_tracker.0.push((entity_a, entity_b, hit_pos));
+            .for_each(|((f_entity, f_pos, f_hitbox, _), (e_entity, e_pos, e_hitbox, _, _))| {
+                if let Some(hit_pos) = is_touching(f_pos.0, f_hitbox.0, e_pos.0, e_hitbox.0) {
+                    damage_tracker.0.push(Damage {
+                        friendly: f_entity,
+                        enemy: e_entity,
+                        position: hit_pos,
+                    });
                 }
             });
     }
@@ -318,30 +324,40 @@ impl<'a> System<'a> for ApplyCollisions {
     fn run(&mut self, (entities, mut damage_tracker, time, mut health, mut pos, mut explosion, mut invul): Self::SystemData) {
         let mut rng = rand::thread_rng();
 
-        for (entity_a, entity_b, mut position) in damage_tracker.0.drain(..) {
-            for entity in &[entity_a, entity_b] {
-                if let Some(health) = health.get_mut(*entity) {
-                    if invul.get_mut(*entity).map(|invul| invul.can_damage(time.0)).unwrap_or(true) {
-                        health.0 = health.0.saturating_sub(1);
+        for mut damage in damage_tracker.0.drain(..) {
+            let player_triggered_invul = damage_entity(damage.friendly, &entities, &mut health, &mut invul, time.0);
+            if player_triggered_invul {
+                damage_entity(damage.enemy, &entities, &mut health, &mut invul, time.0);
+
+                damage.position.x += rng.gen_range(-5.0, 5.0);
+                damage.position.y += rng.gen_range(-5.0, 5.0);
     
-                        if health.0 == 0 {
-                            entities.delete(*entity).unwrap();
-                        }
-                    }   
-                }
+                entities.build_entity()
+                    .with(Position(damage.position), &mut pos)
+                    .with(Explosion(time.0), &mut explosion)
+                    .build();
             }
-
-            position.x += rng.gen_range(-5.0, 5.0);
-            position.y += rng.gen_range(-5.0, 5.0);
-
-            entities.build_entity()
-                .with(Position(position), &mut pos)
-                .with(Explosion(time.0), &mut explosion)
-                .build();
         }
     }
 }
 
+fn damage_entity(entity: Entity, entities: &Entities, health: &mut WriteStorage<Health>, invul: &mut WriteStorage<Invulnerability>, time: f32) -> bool {
+    if let Some(health) = health.get_mut(entity) {
+        let invul = invul.get_mut(entity).map(|invul| invul.can_damage(time)).unwrap_or(true);
+
+        if invul {
+            health.0 = health.0.saturating_sub(1);
+
+            if health.0 == 0 {
+                entities.delete(entity).unwrap();
+            }
+        }
+
+        invul
+    } else {
+        false
+    }
+}
 
 pub struct ExplosionImages;
 
