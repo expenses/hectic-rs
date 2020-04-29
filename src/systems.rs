@@ -33,12 +33,12 @@ impl<'a> System<'a> for RepeatBackgroundLayers {
 pub struct RenderSprite;
 
 impl<'a> System<'a> for RenderSprite {
-    type SystemData = (Entities<'a>, ReadStorage<'a, Position>, ReadStorage<'a, Image>, ReadStorage<'a, Invulnerability>, Read<'a, GameTime>, Write<'a, Renderer>);
+    type SystemData = (Entities<'a>, ReadStorage<'a, Position>, ReadStorage<'a, Image>, ReadStorage<'a, Invulnerability>, ReadStorage<'a, FrozenUntil>, Read<'a, GameTime>, Write<'a, Renderer>);
 
-    fn run(&mut self, (entities, pos, image, invul, time, mut renderer): Self::SystemData) {
-        for (entity, pos, image) in (&entities, &pos, &image).join() {
+    fn run(&mut self, (entities, pos, image, invul, frozen, time, mut renderer): Self::SystemData) {
+        for (entity, pos, image, _) in (&entities, &pos, &image, !&frozen).join() {
             let overlay = invul.get(entity)
-                .filter(|invul| invul.is_invul(time.0))
+                .filter(|invul| invul.is_invul(time.total_time))
                 .map(|_| [1.0, 1.0, 1.0, 0.2])
                 .unwrap_or([0.0; 4]);
 
@@ -50,12 +50,30 @@ impl<'a> System<'a> for RenderSprite {
 pub struct RenderHitboxes;
 
 impl<'a> System<'a> for RenderHitboxes {
-    type SystemData = (ReadStorage<'a, Position>, ReadStorage<'a, Hitbox>, Write<'a, Renderer>);
+    type SystemData = (ReadStorage<'a, Position>, ReadStorage<'a, Hitbox>, Write<'a, Renderer>, Read<'a, ControlsState>);
 
-    fn run(&mut self, (pos, hit, mut renderer): Self::SystemData) {
+    fn run(&mut self, (pos, hit, mut renderer, ctrl_state): Self::SystemData) {
+        if !ctrl_state.debug.pressed {
+            return;
+        }
+
         for (pos, hit) in (&pos, &hit).join() {
             renderer.render_box(pos.0, hit.0);
         }
+    }
+}
+
+pub struct RenderPauseScreen;
+
+impl<'a> System<'a> for RenderPauseScreen {
+    type SystemData = (Read<'a, ControlsState>, Write<'a, Renderer>);
+
+    fn run(&mut self, (ctrl_state, mut renderer): Self::SystemData) {
+        if !ctrl_state.pause.pressed {
+            return;
+        }
+
+        renderer.render_text(&Text::title("Paused"), Vector2::new(WIDTH / 2.0, 40.0));
     }
 }
 
@@ -75,39 +93,33 @@ impl<'a> System<'a> for RenderText {
 pub struct MoveEntities;
 
 impl<'a> System<'a> for MoveEntities {
-    type SystemData = (WriteStorage<'a, Position>, WriteStorage<'a, Movement>, ReadStorage<'a, FrozenUntil>, Read<'a, GameTime>);
+    type SystemData = (WriteStorage<'a, Position>, WriteStorage<'a, Movement>, ReadStorage<'a, FrozenUntil>, Read<'a, GameTime>, Read<'a, ControlsState>);
 
-    fn run(&mut self, (mut pos, mut mov, frozen, game_time): Self::SystemData) {
+    fn run(&mut self, (mut pos, mut mov, frozen, game_time, ctrl_state): Self::SystemData) {
+        if ctrl_state.pause.pressed {
+            return;
+        }
+
+        let dt = game_time.delta_time;
+
         for (mut pos, mov, _) in (&mut pos, &mut mov, !&frozen).join() {
             match mov {
-                Movement::Linear(vector) => pos.0 += *vector,
+                Movement::Linear(vector) => pos.0 += *vector * dt,
                 Movement::Falling(speed) => {
-                    pos.0.y -= *speed;
-                    *speed += 0.15;
+                    pos.0.y -= *speed * dt;
+                    *speed += 0.15 * dt;
                 },
                 Movement::FollowCurve(curve) => {
-                    pos.0 = curve.step(pos.0);
+                    pos.0 = curve.step(pos.0, dt);
                 },
                 Movement::FiringMove(speed, return_time, stop_y) => {
-                    if *return_time <= game_time.0 {
-                        pos.0.y -= *speed;
+                    if *return_time <= game_time.total_time {
+                        pos.0.y -= *speed * dt;
                     } else {
-                        pos.0.y = min(pos.0.y + *speed, *stop_y);
+                        pos.0.y = min(pos.0.y + *speed * dt, *stop_y);
                     }
                 }
             }
-        }
-    }
-}
-
-pub struct HandleKeypresses;
-
-impl<'a> System<'a> for HandleKeypresses {
-    type SystemData = (Write<'a, KeyPresses>, Write<'a, KeyboardState>);
-
-    fn run(&mut self, (mut presses, mut kdb_state): Self::SystemData) {
-        for (key, pressed) in presses.0.drain(..) {
-            kdb_state.0.insert(key, pressed);
         }
     }
 }
@@ -132,29 +144,33 @@ fn max(a: f32, b: f32) -> f32 {
 
 impl<'a> System<'a> for Control {
     type SystemData = (
-        Read<'a, KeyboardState>, Read<'a, GameTime>, Write<'a, BulletSpawner>,
-        ReadStorage<'a, Controllable>, WriteStorage<'a, Position>, WriteStorage<'a, Cooldown>
+        Read<'a, ControlsState>, Read<'a, GameTime>, Write<'a, BulletSpawner>,
+        ReadStorage<'a, Player>, WriteStorage<'a, Position>, WriteStorage<'a, Cooldown>
     );
 
-    fn run(&mut self, (kdb_state, time, mut spawner, controllable, mut position, mut cooldown): Self::SystemData) {
-        for (controls, mut pos, mut cooldown) in (&controllable, &mut position, &mut cooldown).join() {
-            if kdb_state.is_pressed(controls.left) {
-                pos.0.x = max(pos.0.x - PLAYER_SPEED, 0.0);
+    fn run(&mut self, (ctrl_state, time, mut spawner, player, mut position, mut cooldown): Self::SystemData) {
+        let speed = PLAYER_SPEED * time.delta_time;
+
+        for (player, mut pos, cooldown) in (&player, &mut position, &mut cooldown).join() {
+            let player_ctrl_state = ctrl_state.get(*player);
+
+            if player_ctrl_state.left.pressed {
+                pos.0.x = max(pos.0.x - speed, 0.0);
             }
 
-            if kdb_state.is_pressed(controls.right) {
-                pos.0.x = min(pos.0.x + PLAYER_SPEED, WIDTH);
+            if player_ctrl_state.right.pressed {
+                pos.0.x = min(pos.0.x + speed, WIDTH);
             }
 
-            if kdb_state.is_pressed(controls.up) {
-                pos.0.y = max(pos.0.y - PLAYER_SPEED, 0.0);
+            if player_ctrl_state.up.pressed {
+                pos.0.y = max(pos.0.y - speed, 0.0);
             }
 
-            if kdb_state.is_pressed(controls.down) {
-                pos.0.y = min(pos.0.y + PLAYER_SPEED, HEIGHT);
+            if player_ctrl_state.down.pressed {
+                pos.0.y = min(pos.0.y + speed, HEIGHT);
             }
 
-            if kdb_state.is_pressed(controls.fire) && cooldown.is_ready(time.0) {
+            if player_ctrl_state.fire.pressed && cooldown.is_ready(time.total_time) {
                 for direction in &[-0.2_f32, -0.1, 0.0, 0.1, 0.2] {
                     spawner.0.push(BulletToBeSpawned {
                         pos: pos.0,
@@ -171,14 +187,24 @@ impl<'a> System<'a> for Control {
 pub struct TickTime;
 
 impl<'a> System<'a> for TickTime {
-    type SystemData = (Entities<'a>, Write<'a, GameTime>, WriteStorage<'a, FrozenUntil>);
+    type SystemData = (Entities<'a>, Write<'a, GameTime>, WriteStorage<'a, FrozenUntil>, Read<'a, ControlsState>);
 
-    fn run(&mut self, (entities, mut game_time, mut frozen): Self::SystemData) {
-        game_time.0 += 1.0 / 60.0;
+    fn run(&mut self, (entities, mut game_time, mut frozen, ctrl_state): Self::SystemData) {
+        // `delta_time` is meant to be around `1.0` so I gave give speeds for things in pixels per frame, not pixels per second.
+        let now = std::time::Instant::now();
+        let ns_in_a_frame = 1_000_000_000.0 / 60.0;
+        game_time.delta_time = now.duration_since(game_time.last_instant).subsec_nanos() as f32 / ns_in_a_frame;
+        game_time.last_instant = now;
+
+        if ctrl_state.pause.pressed {
+            game_time.delta_time = 0.0;
+        }
+
+        game_time.total_time += game_time.delta_time / 60.0;
         
         for (_, entry) in (&entities, frozen.entries()).join() {
             if let specs::storage::StorageEntry::Occupied(entry) = entry {
-                if entry.get().0 <= game_time.0 {
+                if entry.get().0 <= game_time.total_time {
                     entry.remove();
                 }
             }
@@ -272,8 +298,8 @@ impl<'a> System<'a> for FireBullets {
     fn run(&mut self, (pos, fires, mut cooldown, frozen, mut spawner, time, player_positions): Self::SystemData) {
         let mut rng = rand::thread_rng();
 
-        for (pos, fires, mut cooldown, _) in (&pos, &fires, &mut cooldown, !&frozen).join() {
-            if cooldown.is_ready(time.0) {
+        for (pos, fires, cooldown, _) in (&pos, &fires, &mut cooldown, !&frozen).join() {
+            if cooldown.is_ready(time.total_time) {
                 match fires.method {
                     FiringMethod::AtPlayer(total, spread) => {
                         let player = player_positions.random(&mut rng);
@@ -365,16 +391,16 @@ impl<'a> System<'a> for ApplyCollisions {
         let mut rng = rand::thread_rng();
 
         for mut damage in damage_tracker.0.drain(..) {
-            let player_triggered_invul = damage_entity(damage.friendly, &entities, &mut health, &mut invul, time.0);
+            let player_triggered_invul = damage_entity(damage.friendly, &entities, &mut health, &mut invul, time.total_time);
             if player_triggered_invul {
-                damage_entity(damage.enemy, &entities, &mut health, &mut invul, time.0);
+                damage_entity(damage.enemy, &entities, &mut health, &mut invul, time.total_time);
 
                 damage.position.x += rng.gen_range(-5.0, 5.0);
                 damage.position.y += rng.gen_range(-5.0, 5.0);
     
                 entities.build_entity()
                     .with(Position(damage.position), &mut pos)
-                    .with(Explosion(time.0), &mut explosion)
+                    .with(Explosion(time.total_time), &mut explosion)
                     .build();
             }
         }
@@ -415,7 +441,7 @@ impl<'a> System<'a> for ExplosionImages {
                 Image::from(GraphicsImage::Explosion6),
             ];
 
-            let index = ((time.0 - explosion.0) / 0.5 * images.len() as f32) as usize;
+            let index = ((time.total_time - explosion.0) / 0.5 * images.len() as f32) as usize;
 
             if index < images.len() {
                 image.insert(entity, images[index]).unwrap();

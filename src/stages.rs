@@ -7,7 +7,7 @@ use rand::Rng;
 pub const ZERO: Vector2<f32> = Vector2::new(0.0, 0.0);
 pub const MIDDLE: Vector2<f32> = Vector2::new(WIDTH / 2.0, HEIGHT / 2.0);
 
-pub fn stage_one(mut world: &mut World) {
+pub fn stage_one(world: &mut World) {
     create_background(world, graphics::Image::NightSky, ZERO, ZERO);
     create_background(world, graphics::Image::Clouds, ZERO, Vector2::new(0.0, 1.0));
     create_background(world, graphics::Image::Clouds, Vector2::new(0.0, 1920.0), Vector2::new(0.0, 1.0));
@@ -74,7 +74,7 @@ fn enemy_with_curve(world: &mut World, curve: components::Curve, start: f32, hea
     enemy(
         world,
         curve.b,
-        components::Movement::FollowCurve(curve.clone()),
+        components::Movement::FollowCurve(curve),
         start,
         health,
         image,
@@ -93,22 +93,19 @@ fn float_iter(start: f32, end: f32, step: f32) -> impl Iterator<Item = f32> {
 }
 
 fn create_players(world: &mut World, two_players: bool) {
-    let middle = Vector2::new(WIDTH / 2.0, HEIGHT / 2.0);
-
     if two_players {
-        let (player_one, player_two) = components::Controllable::two_players();
-        create_player(world, player_one, middle);
-        create_player(world, player_two, middle);
+        create_player(world, components::Player::One, MIDDLE);
+        create_player(world, components::Player::Two, MIDDLE);
     } else {
-        create_player(world, components::Controllable::one_player(), middle);
+        create_player(world, components::Player::Single, MIDDLE);
     }
 }
 
-fn create_player(mut world: &mut World, controls: components::Controllable, position: Vector2<f32>) {
+fn create_player(world: &mut World, player: components::Player, position: Vector2<f32>) {
     world.create_entity()
             .with(components::Position(position))
             .with(components::Image::from(graphics::Image::Player))
-            .with(controls)
+            .with(player)
             .with(components::Cooldown::new(0.075))
             .with(components::Hitbox(Vector2::new(10.0, 10.0)))
             .with(components::Friendly)
@@ -119,7 +116,7 @@ fn create_player(mut world: &mut World, controls: components::Controllable, posi
 
 fn create_title(world: &mut World, text: &'static str) {
     world.create_entity()
-        .with(components::Text { text, font: 0, layout: wgpu_glyph::Layout::default().h_align(wgpu_glyph::HorizontalAlign::Center) })
+        .with(components::Text::title(text))
         .with(components::Position(Vector2::new(WIDTH / 2.0, 40.0)))
         .with(components::Movement::Falling(0.0))
         .build();
@@ -147,6 +144,22 @@ pub fn stage_two(world: &mut World) {
 
     let spectre_speed = 10.0 / 3.0;
 
+    for start in float_iter(5.0, 20.0, 0.5) {
+        enemy_with_curve(
+            world,
+            Curve::horizontal(rng.gen_range(0.0, HEIGHT / 2.0), rng.gen_range(0.0, HEIGHT / 2.0), true, spectre_speed),
+            start, 8, graphics::Image::Spectre, Vector2::new(30.0, 30.0),
+        )
+            .with(components::FiresBullets {
+                image: components::Image::from(graphics::Image::DarkBullet),
+                speed: spectre_speed,
+                method: components::FiringMethod::AtPlayer(1, 0.0),
+            })
+            .with(components::Cooldown::new(1.0))
+            .build();
+    }
+
+    for start in float_iter(25.0, 45.0, 0.5) {
         flying_skull(world, start, Vector2::new(rng.gen_range(0.0, WIDTH), -25.0));
         
         if start >= 30.0 {
@@ -169,3 +182,32 @@ fn flying_skull(world: &mut World, start: f32, position: Vector2<f32>) {
         .with(components::TargetPlayer(10.0 / 3.0))
         .build();
 }
+
+/*
+Stage stageTwo() {
+    // Add a bunch of spectres
+
+    BulletFactory darkBullets = new BulletFactory(resources.darkBullet, 200);
+    for (float s = 5; s < 20; s += 0.5) {
+        stage.add(s, new Spectre(new HorizontalCurve(random(0, HEIGHT/2), random(0, HEIGHT/2), true), new AtPlayer(1, 0, 1, darkBullets)));
+    }
+
+    // Lots of flying skulls on all sides! AAahh!!
+
+    for (float s = 25; s < 45; s += 0.5) {
+        stage.add(s, new FlyingSkull(new TargetPlayer(random(0, WIDTH), -25)));
+
+        if (s >= 30) {
+            stage.add(s, new FlyingSkull(new TargetPlayer(random(0, WIDTH), -25)));
+            stage.add(s, new FlyingSkull(new TargetPlayer(-25, random(0, HEIGHT/2))));
+            stage.add(s, new FlyingSkull(new TargetPlayer(WIDTH + 25, random(0, HEIGHT/2))));
+        }
+    }
+
+    // And the boss again
+
+    stage.add(50, new BossTwo());
+
+    return stage;
+}
+*/

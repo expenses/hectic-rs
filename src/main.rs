@@ -44,7 +44,7 @@ async fn run() {
     world.register::<components::Movement>();
     world.register::<components::DieOffscreen>();
     world.register::<components::BackgroundLayer>();
-    world.register::<components::Controllable>();
+    world.register::<components::Player>();
     world.register::<components::FrozenUntil>();
     world.register::<components::BeenOnscreen>();
     world.register::<components::FiresBullets>();
@@ -58,21 +58,18 @@ async fn run() {
     world.register::<components::Text>();
     world.register::<components::TargetPlayer>();
 
-    world.insert(resources::KeyPresses(vec![]));
-    world.insert(resources::KeyboardState::default());
+    world.insert(resources::ControlsState::default());
     world.insert(buffer_renderer);
-    world.insert(resources::GameTime(0.0));
+    world.insert(resources::GameTime::default());
     world.insert(resources::BulletSpawner::default());
     world.insert(resources::DamageTracker::default());
     world.insert(resources::PlayerPositions::default());
 
-    stages::stage_one(&mut world);
     stages::stage_two(&mut world);
     
     let db = DispatcherBuilder::new()
         .with(systems::KillOffscreen, "KillOffscreen", &[])
         .with(systems::MoveEntities, "MoveEntities", &[])
-        .with(systems::HandleKeypresses, "HandleKeypresses", &[])
         .with(systems::Control, "Control", &[])
         .with(systems::SetPlayerPositions, "SetPlayerPositions", &[])
         .with(systems::FireBullets, "FireBullets", &[])
@@ -85,8 +82,9 @@ async fn run() {
         .with(systems::ApplyCollisions, "ApplyCollisions", &["Collisions"])
         .with(systems::ExplosionImages, "ExplosionImages", &["ApplyCollisions"])
         .with(systems::RenderSprite, "RenderSprite", &["MoveEntities", "Control", "SpawnBullets", "ExplosionImages"])
-        .with(systems::RenderText, "RenderText", &["RenderSprite"]);
-        //.with(systems::RenderHitboxes, "RenderHitboxes", &["RenderSprite"]);
+        .with(systems::RenderText, "RenderText", &["RenderSprite"])
+        .with(systems::RenderHitboxes, "RenderHitboxes", &["RenderSprite"])
+        .with(systems::RenderPauseScreen, "RenderPauseScreen", &["RenderSprite"]);
 
     log::debug!("{:?}", db);
 
@@ -115,7 +113,7 @@ async fn run() {
 
                 match code {
                     VirtualKeyCode::Escape => *control_flow = ControlFlow::Exit,
-                    _ => world.fetch_mut::<resources::KeyPresses>().0.push((code, pressed)),
+                    _ => world.fetch_mut::<resources::ControlsState>().press(code, pressed),
                 }
             }
             _ => {}

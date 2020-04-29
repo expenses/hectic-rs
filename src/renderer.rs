@@ -252,7 +252,7 @@ impl Renderer {
                     resolve_target: None,
                     load_op: wgpu::LoadOp::Clear,
                     store_op: wgpu::StoreOp::Store,
-                    clear_color: wgpu::Color::GREEN,
+                    clear_color: wgpu::Color { r: 0.5, g: 0.125, b: 0.125, a: 1.0 },
                 }],
                 depth_stencil_attachment: None,
             });
@@ -323,13 +323,18 @@ impl BufferRenderer {
             .min(self.window_size.x / crate::WIDTH)
     }
 
+    fn centering_x_offset(&self) -> f32 {
+        self.window_size.x - crate::WIDTH * self.scale_factor()
+    }
+
     pub fn render_sprite(&mut self, sprite: Image, pos: Vector2<f32>, overlay: [f32; 4]) {
         let len = self.vertices.len() as i16;
         let (pos_x, pos_y, width, height) = sprite.coordinates();
 
         // dpi factor?
         let pos = pos * 2.0 * self.scale_factor();
-        let pos = pos - self.window_size;
+        let mut pos = pos - self.window_size;
+        pos.x += self.centering_x_offset();
         let pos = pos.div_element_wise(self.window_size);
 
         let sprite_size = (sprite.size() * 2.0)
@@ -359,7 +364,8 @@ impl BufferRenderer {
 
         // dpi factor?
         let pos = pos * 2.0 * self.scale_factor();
-        let pos = pos - self.window_size;
+        let mut pos = pos - self.window_size;
+        pos.x += self.centering_x_offset();
         let pos = pos.div_element_wise(self.window_size);
 
         let sprite_size = size
@@ -383,7 +389,9 @@ impl BufferRenderer {
         self.indices.extend_from_slice(&[len, len + 1, len + 2, len + 2, len + 3, len]);
     }
 
-    pub fn render_text(&mut self, text: &Text, pos: Vector2<f32>) {
+    pub fn render_text(&mut self, text: &Text, mut pos: Vector2<f32>) {
+        pos.x += self.centering_x_offset() / self.scale_factor() / 2.0;
+
         let scale = match text.font {
             0 => 160.0,
             1 => 24.0,

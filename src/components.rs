@@ -1,7 +1,6 @@
 use cgmath::Vector2;
 use specs::*;
 use cgmath::MetricSpace;
-use winit::event::VirtualKeyCode;
 
 use crate::{WIDTH, HEIGHT};
 use crate::graphics::Image as GraphicsImage;
@@ -26,42 +25,11 @@ impl Image {
     }
 }
 
-#[derive(Component)]
-pub struct Controllable {
-    pub up: VirtualKeyCode,
-    pub down: VirtualKeyCode,
-    pub left: VirtualKeyCode,
-    pub right: VirtualKeyCode,
-    pub fire: VirtualKeyCode,
-}
-
-impl Controllable {
-    pub fn one_player() -> Self {
-        Self {
-            up: VirtualKeyCode::Up,
-            down: VirtualKeyCode::Down,
-            left: VirtualKeyCode::Left,
-            right: VirtualKeyCode::Right,
-            fire: VirtualKeyCode::Z,
-        }
-    }
-
-    pub fn two_players() -> (Self, Self) {
-        (
-            {
-                let mut player_one = Self::one_player();
-                player_one.fire = VirtualKeyCode::RControl;
-                player_one
-            },
-            Self {
-                up: VirtualKeyCode::W,
-                down: VirtualKeyCode::S,
-                left: VirtualKeyCode::A,
-                right: VirtualKeyCode::D,
-                fire: VirtualKeyCode::LShift,
-            }
-        )
-    }
+#[derive(Component, Copy, Clone)]
+pub enum Player {
+    Single,
+    One,
+    Two,
 }
 
 #[derive(Component)]
@@ -92,6 +60,15 @@ pub struct Text {
     pub text: &'static str,
     pub font: usize,
     pub layout: wgpu_glyph::Layout<wgpu_glyph::BuiltInLineBreaker>,
+}
+
+impl Text {
+    pub fn title(text: &'static str) -> Self {
+        Self {
+            text, font: 0,
+            layout: wgpu_glyph::Layout::default().h_align(wgpu_glyph::HorizontalAlign::Center)
+        }
+    }
 }
 
 #[derive(Component)]
@@ -219,9 +196,10 @@ impl Curve {
         )
     }
 
-    pub fn step(&mut self, previous_point: Vector2<f32>) -> Vector2<f32> {
+    pub fn step(&mut self, previous_point: Vector2<f32>, delta_time: f32) -> Vector2<f32> {
         let mut min_time = self.time;
         let mut max_time = self.time + 1.0;
+        let speed = self.speed * delta_time;
 
         loop {
             let mid_time = (min_time + max_time) / 2.0;
@@ -229,11 +207,11 @@ impl Curve {
             let mid_dist = mid_point.distance(previous_point);
 
             // If it's precise enough, set it and return
-            if (mid_dist - self.speed).abs() < 0.1 {
+            if (mid_dist - speed).abs() < 0.1 {
                 self.time = mid_time;
                 return mid_point;
             // Else change the min/max values
-            } else if mid_dist < self.speed {
+            } else if mid_dist < speed {
                 min_time = mid_time;
             } else {
                 max_time = mid_time;

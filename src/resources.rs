@@ -1,20 +1,117 @@
 use winit::event::VirtualKeyCode;
 use cgmath::Vector2;
+use rand::Rng;
+use crate::components::Player;
 
-#[derive(Default)]
-pub struct KeyPresses(pub Vec<(VirtualKeyCode, bool)>);
+pub struct ControlsState {
+    single_player: PlayerControlsState,
+    player_1: PlayerControlsState,
+    player_2: PlayerControlsState,
+    pub pause: KeyState,
+    pub debug: KeyState,
+}
 
-#[derive(Default)]
-pub struct KeyboardState(pub std::collections::HashMap<VirtualKeyCode, bool>);
+impl ControlsState {
+    pub fn press(&mut self, key: VirtualKeyCode, pressed: bool) {
+        self.single_player.press(key, pressed);
+        self.player_1.press(key, pressed);
+        self.player_2.press(key, pressed);
+        self.pause.toggle(key, pressed);
+        self.debug.toggle(key, pressed);
+    }
 
-impl KeyboardState {
-    pub fn is_pressed(&self, key: VirtualKeyCode) -> bool {
-        self.0.get(&key).cloned().unwrap_or(false)
+    pub fn get(&self, player: Player) -> &PlayerControlsState {
+        match player {
+            Player::Single => &self.single_player,
+            Player::One => &self.player_1,
+            Player::Two => &self.player_2,
+        }
     }
 }
 
-#[derive(Default)]
-pub struct GameTime(pub f32);
+impl Default for ControlsState {
+    fn default() -> Self {
+        Self {
+            single_player: PlayerControlsState::single_player(),
+            player_1: PlayerControlsState::single_player(),
+            player_2: PlayerControlsState::single_player(),
+            pause: KeyState::new(VirtualKeyCode::P),
+            debug: KeyState::new(VirtualKeyCode::Semicolon),
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct PlayerControlsState {
+    pub up: KeyState,
+    pub left: KeyState,
+    pub right: KeyState,
+    pub down: KeyState,
+    pub fire: KeyState,
+}
+
+impl PlayerControlsState {
+    fn single_player() -> Self {
+        Self {
+            up: KeyState::new(VirtualKeyCode::Up),
+            left: KeyState::new(VirtualKeyCode::Left),
+            right: KeyState::new(VirtualKeyCode::Right),
+            down: KeyState::new(VirtualKeyCode::Down),
+            fire: KeyState::new(VirtualKeyCode::Z)
+        }
+    }
+
+    fn press(&mut self, key: VirtualKeyCode, pressed: bool) {
+        self.up.press(key, pressed);
+        self.left.press(key, pressed);
+        self.right.press(key, pressed);
+        self.down.press(key, pressed);
+        self.fire.press(key, pressed);
+    }
+}
+
+#[derive(Debug)]
+pub struct KeyState {
+    key: VirtualKeyCode,
+    pub pressed: bool
+}
+
+impl KeyState {
+    fn new(key: VirtualKeyCode) -> Self {
+        Self {
+            key,
+            pressed: false
+        }
+    }
+
+    fn toggle(&mut self, key: VirtualKeyCode, pressed: bool) {
+        if self.key == key && pressed {
+            self.pressed = !self.pressed;
+        }
+    }
+
+    fn press(&mut self, key: VirtualKeyCode, pressed: bool) {
+        if self.key == key {
+            self.pressed = pressed;
+        }
+    }
+}
+
+pub struct GameTime {
+    pub total_time: f32,
+    pub delta_time: f32,
+    pub last_instant: std::time::Instant,
+}
+
+impl Default for GameTime {
+    fn default() -> Self {
+        Self {
+            total_time: 0.0,
+            delta_time: 0.0,
+            last_instant: std::time::Instant::now()
+        }
+    }
+}
 
 #[derive(Default)]
 pub struct BulletSpawner(pub Vec<BulletToBeSpawned>);
