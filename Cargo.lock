@@ -658,9 +658,9 @@ dependencies = [
 
 [[package]]
 name = "gfx-backend-vulkan"
-version = "0.5.3"
+version = "0.5.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2e4da6ab11e9cb972e52ed5e179ddfa1f2a910c61560d91cff92b4dfc682c27c"
+checksum = "45ff36feae801fa23d29acd74082603a0145a697a23595757dd4e78828ab33da"
 dependencies = [
  "arrayvec",
  "ash",
@@ -854,9 +854,9 @@ dependencies = [
 
 [[package]]
 name = "jpeg-decoder"
-version = "0.1.18"
+version = "0.1.19"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0256f0aec7352539102a9efbcb75543227b7ab1117e0f95450023af730128451"
+checksum = "5b47b4c4e017b01abdc5bcc126d2d1002e5a75bbe3ce73f9f4f311a916363704"
 dependencies = [
  "byteorder",
  "rayon",
@@ -864,8 +864,9 @@ dependencies = [
 
 [[package]]
 name = "js-sys"
-version = "0.3.37"
-source = "git+https://github.com/rustwasm/wasm-bindgen#69aef24acf7cefa176b8e0133e777e931e33e3e6"
+version = "0.3.38"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0b823ebafcee1632403f2782d28728aab353f7881547a700043ef455c078326f"
 dependencies = [
  "wasm-bindgen",
 ]
@@ -1847,8 +1848,9 @@ checksum = "cccddf32554fecc6acb585f82a32a72e28b48f8c4c1883ddfeeeaa96f7d8e519"
 
 [[package]]
 name = "wasm-bindgen"
-version = "0.2.60"
-source = "git+https://github.com/rustwasm/wasm-bindgen#69aef24acf7cefa176b8e0133e777e931e33e3e6"
+version = "0.2.61"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f56e97dbea16d5f56549d6c8ea7f36efb6be98507308650c1a5970574b3941b9"
 dependencies = [
  "cfg-if",
  "wasm-bindgen-macro",
@@ -1856,8 +1858,9 @@ dependencies = [
 
 [[package]]
 name = "wasm-bindgen-backend"
-version = "0.2.60"
-source = "git+https://github.com/rustwasm/wasm-bindgen#69aef24acf7cefa176b8e0133e777e931e33e3e6"
+version = "0.2.61"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7b75d4f3f9b81dfc7d66b955876b325b20e8affd4ce8d93e51162626fc5faadb"
 dependencies = [
  "bumpalo",
  "lazy_static",
@@ -1870,9 +1873,9 @@ dependencies = [
 
 [[package]]
 name = "wasm-bindgen-futures"
-version = "0.4.10"
+version = "0.4.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7add542ea1ac7fdaa9dc25e031a6af33b7d63376292bd24140c637d00d1c312a"
+checksum = "736dcd8f8455458c82614f12116aabd0209d440c1a28d8824bcaed755ac3e058"
 dependencies = [
  "cfg-if",
  "js-sys",
@@ -1882,8 +1885,9 @@ dependencies = [
 
 [[package]]
 name = "wasm-bindgen-macro"
-version = "0.2.60"
-source = "git+https://github.com/rustwasm/wasm-bindgen#69aef24acf7cefa176b8e0133e777e931e33e3e6"
+version = "0.2.61"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9dcde4b19e863521c1e78ecf100935132396291b09ae0ae2e155ff84ccbe9736"
 dependencies = [
  "quote 1.0.3",
  "wasm-bindgen-macro-support",
@@ -1891,8 +1895,9 @@ dependencies = [
 
 [[package]]
 name = "wasm-bindgen-macro-support"
-version = "0.2.60"
-source = "git+https://github.com/rustwasm/wasm-bindgen#69aef24acf7cefa176b8e0133e777e931e33e3e6"
+version = "0.2.61"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "13d87d2b117af2b86472402d70f7eb173bbe166beb5e727f3c0bebecdf356504"
 dependencies = [
  "proc-macro2 1.0.10",
  "quote 1.0.3",
@@ -1903,8 +1908,9 @@ dependencies = [
 
 [[package]]
 name = "wasm-bindgen-shared"
-version = "0.2.60"
-source = "git+https://github.com/rustwasm/wasm-bindgen#69aef24acf7cefa176b8e0133e777e931e33e3e6"
+version = "0.2.61"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "71f77b681efd0bca6f8ea356cdc2e497538b41d3e2a02afed18ce8f022231d29"
 
 [[package]]
 name = "wayland-client"
@@ -1968,8 +1974,9 @@ dependencies = [
 
 [[package]]
 name = "web-sys"
-version = "0.3.37"
-source = "git+https://github.com/rustwasm/wasm-bindgen#69aef24acf7cefa176b8e0133e777e931e33e3e6"
+version = "0.3.38"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "07c5819dc39222a788ca169a81aef7d02739019256300534f493b5747d5469c2"
 dependencies = [
  "js-sys",
  "wasm-bindgen",
