@@ -100,23 +100,21 @@ impl<'a> System<'a> for MoveEntities {
             return;
         }
 
-        let dt = game_time.delta_time;
-
         for (mut pos, mov, _) in (&mut pos, &mut mov, !&frozen).join() {
             match mov {
-                Movement::Linear(vector) => pos.0 += *vector * dt,
+                Movement::Linear(vector) => pos.0 += *vector,
                 Movement::Falling(speed) => {
-                    pos.0.y -= *speed * dt;
-                    *speed += 0.15 * dt;
+                    pos.0.y -= *speed;
+                    *speed += 0.15;
                 },
                 Movement::FollowCurve(curve) => {
-                    pos.0 = curve.step(pos.0, dt);
+                    pos.0 = curve.step(pos.0);
                 },
                 Movement::FiringMove(speed, return_time, stop_y) => {
                     if *return_time <= game_time.total_time {
-                        pos.0.y -= *speed * dt;
+                        pos.0.y -= *speed;
                     } else {
-                        pos.0.y = min(pos.0.y + *speed * dt, *stop_y);
+                        pos.0.y = min(pos.0.y + *speed, *stop_y);
                     }
                 }
             }
@@ -149,25 +147,23 @@ impl<'a> System<'a> for Control {
     );
 
     fn run(&mut self, (ctrl_state, time, mut spawner, player, mut position, mut cooldown): Self::SystemData) {
-        let speed = PLAYER_SPEED * time.delta_time;
-
         for (player, mut pos, cooldown) in (&player, &mut position, &mut cooldown).join() {
             let player_ctrl_state = ctrl_state.get(*player);
 
             if player_ctrl_state.left.pressed {
-                pos.0.x = max(pos.0.x - speed, 0.0);
+                pos.0.x = max(pos.0.x - PLAYER_SPEED, 0.0);
             }
 
             if player_ctrl_state.right.pressed {
-                pos.0.x = min(pos.0.x + speed, WIDTH);
+                pos.0.x = min(pos.0.x + PLAYER_SPEED, WIDTH);
             }
 
             if player_ctrl_state.up.pressed {
-                pos.0.y = max(pos.0.y - speed, 0.0);
+                pos.0.y = max(pos.0.y - PLAYER_SPEED, 0.0);
             }
 
             if player_ctrl_state.down.pressed {
-                pos.0.y = min(pos.0.y + speed, HEIGHT);
+                pos.0.y = min(pos.0.y + PLAYER_SPEED, HEIGHT);
             }
 
             if player_ctrl_state.fire.pressed && cooldown.is_ready(time.total_time) {
@@ -190,18 +186,10 @@ impl<'a> System<'a> for TickTime {
     type SystemData = (Entities<'a>, Write<'a, GameTime>, WriteStorage<'a, FrozenUntil>, Read<'a, ControlsState>);
 
     fn run(&mut self, (entities, mut game_time, mut frozen, ctrl_state): Self::SystemData) {
-        // `delta_time` is meant to be around `1.0` so I gave give speeds for things in pixels per frame, not pixels per second.
-        let now = std::time::Instant::now();
-        let ns_in_a_frame = 1_000_000_000.0 / 60.0;
-        game_time.delta_time = now.duration_since(game_time.last_instant).subsec_nanos() as f32 / ns_in_a_frame;
-        game_time.last_instant = now;
-
-        if ctrl_state.pause.pressed {
-            game_time.delta_time = 0.0;
+         if !ctrl_state.pause.pressed {
+            game_time.total_time += 1.0 / 60.0;
         }
 
-        game_time.total_time += game_time.delta_time / 60.0;
-        
         for (_, entry) in (&entities, frozen.entries()).join() {
             if let specs::storage::StorageEntry::Occupied(entry) = entry {
                 if entry.get().0 <= game_time.total_time {

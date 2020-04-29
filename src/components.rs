@@ -196,10 +196,9 @@ impl Curve {
         )
     }
 
-    pub fn step(&mut self, previous_point: Vector2<f32>, delta_time: f32) -> Vector2<f32> {
+    pub fn step(&mut self, previous_point: Vector2<f32>) -> Vector2<f32> {
         let mut min_time = self.time;
         let mut max_time = self.time + 1.0;
-        let speed = self.speed * delta_time;
 
         loop {
             let mid_time = (min_time + max_time) / 2.0;
@@ -207,11 +206,11 @@ impl Curve {
             let mid_dist = mid_point.distance(previous_point);
 
             // If it's precise enough, set it and return
-            if (mid_dist - speed).abs() < 0.1 {
+            if (mid_dist - self.speed).abs() < 0.1 {
                 self.time = mid_time;
                 return mid_point;
             // Else change the min/max values
-            } else if mid_dist < speed {
+            } else if mid_dist < self.speed {
                 min_time = mid_time;
             } else {
                 max_time = mid_time;

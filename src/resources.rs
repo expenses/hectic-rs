@@ -99,16 +99,12 @@ impl KeyState {
 
 pub struct GameTime {
     pub total_time: f32,
-    pub delta_time: f32,
-    pub last_instant: std::time::Instant,
 }
 
 impl Default for GameTime {
     fn default() -> Self {
         Self {
             total_time: 0.0,
-            delta_time: 0.0,
-            last_instant: std::time::Instant::now()
         }
     }
 }
