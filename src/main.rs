@@ -64,6 +64,7 @@ async fn run() {
     world.insert(resources::BulletSpawner::default());
     world.insert(resources::DamageTracker::default());
     world.insert(resources::PlayerPositions::default());
+    world.insert(resources::Mode::Playing);
 
     stages::stage_two(&mut world);
     
@@ -84,12 +85,20 @@ async fn run() {
         .with(systems::RenderSprite, "RenderSprite", &["MoveEntities", "Control", "SpawnBullets", "ExplosionImages"])
         .with(systems::RenderText, "RenderText", &["RenderSprite"])
         .with(systems::RenderHitboxes, "RenderHitboxes", &["RenderSprite"])
-        .with(systems::RenderUI, "RenderUI", &["RenderSprite"])
-        .with(systems::RenderPauseScreen, "RenderPauseScreen", &["RenderSprite"]);
+        .with(systems::RenderUI, "RenderUI", &["RenderSprite"]);
 
     log::debug!("{:?}", db);
 
-    let mut dispatcher = db.build();
+    let mut playing_dispatcher = db.build();
+
+    let mut paused_dispatcher = DispatcherBuilder::new()
+        .with(systems::RenderSprite, "RenderSprite", &[])
+        .with(systems::RenderText, "RenderText", &["RenderSprite"])
+        .with(systems::RenderHitboxes, "RenderHitboxes", &["RenderSprite"])
+        .with(systems::RenderUI, "RenderUI", &["RenderSprite"])
+        .with(systems::RenderPauseScreen, "RenderPauseScreen", &["RenderSprite"])
+        .build();
+
 
     event_loop.run(move |event, _, control_flow| match event {
         Event::WindowEvent { event, .. } => match event {
@@ -114,18 +123,37 @@ async fn run() {
 
                 match code {
                     VirtualKeyCode::Escape => *control_flow = ControlFlow::Exit,
-                    _ => world.fetch_mut::<resources::ControlsState>().press(code, pressed),
+                    _ => {
+                        let mut controls = world.fetch_mut::<resources::ControlsState>();
+                        let mut mode = world.fetch_mut::<resources::Mode>();
+                        
+                        controls.press(code, pressed);
+
+                        if controls.pause.pressed {
+                            *mode = match *mode {
+                                resources::Mode::Playing => resources::Mode::Paused,
+                                resources::Mode::Paused => resources::Mode::Playing,
+                                _ => *mode
+                            };
+                            controls.pause.pressed = false;
+                        }
+                    },
                 }
             }
             _ => {}
         },
         Event::MainEventsCleared => {
-            dispatcher.dispatch(&world);
+            match *world.fetch() {
+                resources::Mode::MainMenu => {},
+                resources::Mode::Playing => playing_dispatcher.dispatch(&world),
+                resources::Mode::Paused => paused_dispatcher.dispatch(&world),
+            }
+
             world.maintain();
             renderer.request_redraw();
         },
         Event::RedrawRequested(_) => renderer.render(&mut world.fetch_mut()),
-        Event::LoopDestroyed => world.fetch_mut::<resources::ControlsState>().save(),
+        Event::LoopDestroyed => world.fetch::<resources::ControlsState>().save(),
         _ => {}
     });
 }

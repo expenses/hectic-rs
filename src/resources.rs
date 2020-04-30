@@ -5,6 +5,19 @@ use crate::components::Player;
 
 use serde::{Serialize, Deserialize};
 
+#[derive(Clone, Copy)]
+pub enum Mode {
+    Playing,
+    Paused,
+    MainMenu
+}
+
+impl Default for Mode {
+    fn default() -> Self {
+        Mode::MainMenu
+    }
+}
+
 #[derive(Serialize, Deserialize)]
 pub struct ControlsState {
     pub pause: KeyState,
