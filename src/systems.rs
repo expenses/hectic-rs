@@ -66,13 +66,9 @@ impl<'a> System<'a> for RenderHitboxes {
 pub struct RenderPauseScreen;
 
 impl<'a> System<'a> for RenderPauseScreen {
-    type SystemData = (Read<'a, ControlsState>, Write<'a, Renderer>);
+    type SystemData = (Write<'a, Renderer>);
 
-    fn run(&mut self, (ctrl_state, mut renderer): Self::SystemData) {
-        if !ctrl_state.pause.pressed {
-            return;
-        }
-
+    fn run(&mut self, (mut renderer): Self::SystemData) {
         renderer.render_text(&Text::title("Paused"), Vector2::new(WIDTH / 2.0, 40.0));
     }
 }
@@ -119,13 +115,9 @@ impl<'a> System<'a> for RenderUI {
 pub struct MoveEntities;
 
 impl<'a> System<'a> for MoveEntities {
-    type SystemData = (WriteStorage<'a, Position>, WriteStorage<'a, Movement>, ReadStorage<'a, FrozenUntil>, Read<'a, GameTime>, Read<'a, ControlsState>);
+    type SystemData = (WriteStorage<'a, Position>, WriteStorage<'a, Movement>, ReadStorage<'a, FrozenUntil>, Read<'a, GameTime>);
 
-    fn run(&mut self, (mut pos, mut mov, frozen, game_time, ctrl_state): Self::SystemData) {
-        if ctrl_state.pause.pressed {
-            return;
-        }
-
+    fn run(&mut self, (mut pos, mut mov, frozen, game_time): Self::SystemData) {
         for (mut pos, mov, _) in (&mut pos, &mut mov, !&frozen).join() {
             match mov {
                 Movement::Linear(vector) => pos.0 += *vector,
@@ -209,12 +201,10 @@ impl<'a> System<'a> for Control {
 pub struct TickTime;
 
 impl<'a> System<'a> for TickTime {
-    type SystemData = (Entities<'a>, Write<'a, GameTime>, WriteStorage<'a, FrozenUntil>, Read<'a, ControlsState>);
+    type SystemData = (Entities<'a>, Write<'a, GameTime>, WriteStorage<'a, FrozenUntil>);
 
-    fn run(&mut self, (entities, mut game_time, mut frozen, ctrl_state): Self::SystemData) {
-         if !ctrl_state.pause.pressed {
-            game_time.total_time += 1.0 / 60.0;
-        }
+    fn run(&mut self, (entities, mut game_time, mut frozen): Self::SystemData) {
+        game_time.total_time += 1.0 / 60.0;
 
         for (_, entry) in (&entities, frozen.entries()).join() {
             if let specs::storage::StorageEntry::Occupied(entry) = entry {
