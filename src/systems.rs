@@ -89,6 +89,32 @@ impl<'a> System<'a> for RenderText {
     }
 }
 
+pub struct RenderUI;
+
+impl<'a> System<'a> for RenderUI {
+    type SystemData = (ReadStorage<'a, Player>, ReadStorage<'a, Health>, Write<'a, Renderer>);
+
+    fn run(&mut self, (player, health, mut renderer): Self::SystemData) {
+        let mut join = (&player, &health).join().map(|(_, health)| health.0);
+
+        if let Some(health) = join.next() {
+            renderer.render_text(&Text {
+                text: format!("Health: {}", health),
+                font: 1,
+                layout: wgpu_glyph::Layout::default()
+            }, Vector2::new(0.0, 0.0));
+        }
+
+        if let Some(health) = join.next() {
+            renderer.render_text(&Text {
+                text: format!("Health: {}", health),
+                font: 1,
+                layout: wgpu_glyph::Layout::default()
+            }, Vector2::new(0.0, 20.0));
+        }
+    }
+}
+
 
 pub struct MoveEntities;
 

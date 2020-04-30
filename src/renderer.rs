@@ -269,7 +269,7 @@ impl Renderer {
 
         for section in renderer.glyph_sections.drain(..) {
             let layout = wgpu_glyph::PixelPositioner(section.layout);
-            self.glyph_brush.queue_custom_layout(section, &layout);
+            self.glyph_brush.queue_custom_layout(&section, &layout);
         }
         self.glyph_brush.draw_queued(
             &self.device,
@@ -304,7 +304,8 @@ pub struct BufferRenderer {
     window_size: Vector2<f32>,
     // We can't store a GlyphBrush directly here because on wasm the buffer
     // is a js type and thus not threadsafe.
-    glyph_sections: Vec<wgpu_glyph::Section<'static, wgpu_glyph::DrawMode>>,
+    // todo: maybe store something lighter here so we can use cow strs
+    glyph_sections: Vec<wgpu_glyph::OwnedVariedSection<wgpu_glyph::DrawMode>>,
 }
 
 impl Default for BufferRenderer {
@@ -398,16 +399,19 @@ impl BufferRenderer {
             _ => unreachable!()
         };
 
-        let section = wgpu_glyph::Section {
-            text: text.text,
+        let section = wgpu_glyph::OwnedVariedSection {
             screen_position: (pos * self.scale_factor()).into(),
-            scale: wgpu_glyph::Scale::uniform(scale * self.scale_factor()),
-            color: [1.0; 4],
             layout: text.layout,
-            custom: wgpu_glyph::DrawMode::pixelated(2.0 * self.scale_factor()),
-            
-            font_id: wgpu_glyph::FontId(text.font),
-            ..wgpu_glyph::Section::default()
+            text: vec![
+                wgpu_glyph::OwnedSectionText {
+                    text: text.text.clone(),
+                    scale: wgpu_glyph::Scale::uniform(scale * self.scale_factor()),
+                    color: [1.0; 4],
+                    font_id: wgpu_glyph::FontId(text.font),
+                    custom: wgpu_glyph::DrawMode::pixelated(2.0 * self.scale_factor()),
+                }
+            ],
+            ..wgpu_glyph::OwnedVariedSection::default()
         };
 
         self.glyph_sections.push(section);

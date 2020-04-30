@@ -94,8 +94,9 @@ fn float_iter(start: f32, end: f32, step: f32) -> impl Iterator<Item = f32> {
 
 fn create_players(world: &mut World, two_players: bool) {
     if two_players {
-        create_player(world, components::Player::One, MIDDLE);
-        create_player(world, components::Player::Two, MIDDLE);
+        let offset = Vector2::new(20.0, 0.0);
+        create_player(world, components::Player::One, MIDDLE - offset);
+        create_player(world, components::Player::Two, MIDDLE + offset);
     } else {
         create_player(world, components::Player::Single, MIDDLE);
     }
@@ -109,7 +110,7 @@ fn create_player(world: &mut World, player: components::Player, position: Vector
             .with(components::Cooldown::new(0.075))
             .with(components::Hitbox(Vector2::new(10.0, 10.0)))
             .with(components::Friendly)
-            .with(components::Health(10))
+            .with(components::Health(2))
             .with(components::Invulnerability::new())
             .build();
 }

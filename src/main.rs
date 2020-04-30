@@ -84,6 +84,7 @@ async fn run() {
         .with(systems::RenderSprite, "RenderSprite", &["MoveEntities", "Control", "SpawnBullets", "ExplosionImages"])
         .with(systems::RenderText, "RenderText", &["RenderSprite"])
         .with(systems::RenderHitboxes, "RenderHitboxes", &["RenderSprite"])
+        .with(systems::RenderUI, "RenderUI", &["RenderSprite"])
         .with(systems::RenderPauseScreen, "RenderPauseScreen", &["RenderSprite"]);
 
     log::debug!("{:?}", db);

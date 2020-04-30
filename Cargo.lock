@@ -723,7 +723,7 @@ dependencies = [
 [[package]]
 name = "glyph_brush"
 version = "0.6.3"
-source = "git+https://github.com/expenses/glyph-brush?branch=custom#7ac310d780b51d74ebca1528eb388493363b77a3"
+source = "git+https://github.com/expenses/glyph-brush?branch=custom#ba2341a7c215e73ca29b6060f2b520920bf66102"
 dependencies = [
  "glyph_brush_layout",
  "log",
@@ -736,7 +736,7 @@ dependencies = [
 [[package]]
 name = "glyph_brush_layout"
 version = "0.1.9"
-source = "git+https://github.com/expenses/glyph-brush?branch=custom#7ac310d780b51d74ebca1528eb388493363b77a3"
+source = "git+https://github.com/expenses/glyph-brush?branch=custom#ba2341a7c215e73ca29b6060f2b520920bf66102"
 dependencies = [
  "approx",
  "rusttype 0.8.3",
