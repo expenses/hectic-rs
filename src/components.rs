@@ -57,15 +57,15 @@ pub struct FrozenUntil(pub f32);
 
 #[derive(Component)]
 pub struct Text {
-    pub text: &'static str,
+    pub text: String,
     pub font: usize,
     pub layout: wgpu_glyph::Layout<wgpu_glyph::BuiltInLineBreaker>,
 }
 
 impl Text {
-    pub fn title(text: &'static str) -> Self {
+    pub fn title(text: &str) -> Self {
         Self {
-            text, font: 0,
+            text: text.into(), font: 0,
             layout: wgpu_glyph::Layout::default().h_align(wgpu_glyph::HorizontalAlign::Center)
         }
     }
