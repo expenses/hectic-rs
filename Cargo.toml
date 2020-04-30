@@ -8,7 +8,7 @@ edition = "2018"
 
 [dependencies]
 specs = { version = "0.16.1", default-features = false, features = ["specs-derive"] }
-winit = { version = "0.22.1", features = ["web-sys"] }
+winit = { version = "0.22.1", features = ["web-sys", "serde"] }
 wgpu = { git = "https://github.com/gfx-rs/wgpu-rs" }
 image = { version = "0.23.4", default-features = false, features = ["png"] }
 rand = { version = "0.7.3", features = ["wasm-bindgen"] }
@@ -24,6 +24,8 @@ web-sys = { version = "0.3.38", optional = true }
 wasm-bindgen-futures = { version = "0.4.11", optional = true }
 log = "0.4.8"
 console_log = "0.2.0"
+serde = { version = "1.0.106", features = ["derive"] }
+toml = "0.5.6"
 
 [build-dependencies]
 yaap = { path = "yaap" }

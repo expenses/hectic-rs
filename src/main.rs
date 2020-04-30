@@ -58,7 +58,7 @@ async fn run() {
     world.register::<components::Text>();
     world.register::<components::TargetPlayer>();
 
-    world.insert(resources::ControlsState::default());
+    world.insert(resources::ControlsState::load());
     world.insert(buffer_renderer);
     world.insert(resources::GameTime::default());
     world.insert(resources::BulletSpawner::default());
@@ -125,6 +125,7 @@ async fn run() {
             renderer.request_redraw();
         },
         Event::RedrawRequested(_) => renderer.render(&mut world.fetch_mut()),
+        Event::LoopDestroyed => world.fetch_mut::<resources::ControlsState>().save(),
         _ => {}
     });
 }
