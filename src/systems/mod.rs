@@ -98,6 +98,8 @@ impl<'a> System<'a> for ControlMenu {
                 player_ctrl_state.up.pressed = false;
             }
 
+            let last_item = menu.items.len() - 1;
+
             if player_ctrl_state.fire.pressed {
                 match *mode {
                     Mode::Paused(selected) => {
@@ -121,6 +123,11 @@ impl<'a> System<'a> for ControlMenu {
                             1 => Mode::StageTwo,
                             2 => Mode::MainMenu(0),
                             _ => unreachable!()
+                        }
+                    },
+                    Mode::Controls(selected) => {
+                        if selected == last_item {
+                            *mode = Mode::MainMenu(1);
                         }
                     }
                     _ => {}
