@@ -195,6 +195,11 @@ impl Renderer {
                             offset: 16,
                             shader_location: 2,
                         },
+                        wgpu::VertexAttributeDescriptor {
+                            format: wgpu::VertexFormat::Int,
+                            offset: 32,
+                            shader_location: 3,
+                        },
                     ],
                 }],
             },
@@ -298,6 +303,7 @@ pub struct Vertex {
     pos: [f32; 2],
     uv: [f32; 2],
     overlay: [f32; 4],
+    overlay_only: i32
 }
 
 pub struct BufferRenderer {
@@ -330,63 +336,57 @@ impl BufferRenderer {
         self.window_size.x - crate::WIDTH * self.scale_factor()
     }
 
-    pub fn render_sprite(&mut self, sprite: Image, pos: Vector2<f32>, overlay: [f32; 4]) {
-        let len = self.vertices.len() as i16;
-        let (pos_x, pos_y, width, height) = sprite.coordinates();
+    pub fn render_sprite(&mut self, sprite: Image, mut pos: Vector2<f32>, overlay: [f32; 4]) {
+        let (uv_x, uv_y, uv_w, uv_h) = sprite.coordinates();
 
-        // dpi factor?
-        let pos = pos * 2.0 * self.scale_factor();
-        let mut pos = pos - self.window_size;
+        pos = pos * 2.0 * self.scale_factor();
+        pos = pos - self.window_size;
         pos.x += self.centering_x_offset();
-        let pos = pos.div_element_wise(self.window_size);
+        pos = pos.div_element_wise(self.window_size);
 
-        let sprite_size = (sprite.size() * 2.0)
+        let mut dimensions = (sprite.size() * 2.0)
             .div_element_wise(self.window_size)
             * self.scale_factor();
         
-        let x = pos.x;
-        let y = -pos.y;
-        let s_w = sprite_size.x;
-        let s_h = -sprite_size.y;
+        pos.y = -pos.y;
+        dimensions.y = -dimensions.y;
 
-        self.vertices.extend_from_slice(&[
-            Vertex{pos: [x + s_w, y - s_h], uv: [pos_x + width, pos_y], overlay},
-            Vertex{pos: [x - s_w, y - s_h], uv: [pos_x, pos_y], overlay},
-            Vertex{pos: [x - s_w, y + s_h], uv: [pos_x, pos_y + height], overlay},
-            Vertex{pos: [x + s_w, y + s_h], uv: [pos_x + width, pos_y + height], overlay},
-        ]);
-
-        self.indices.extend_from_slice(&[len, len + 1, len + 2, len + 2, len + 3, len]);
+        self.render(pos, dimensions, Vector2::new(uv_x, uv_y), Vector2::new(uv_w, uv_h), overlay, false);
     }
 
-    pub fn render_box(&mut self, pos: Vector2<f32>, mut size: Vector2<f32>) {
-        let len = self.vertices.len() as i16;
-
+    pub fn render_box(&mut self, mut pos: Vector2<f32>, mut size: Vector2<f32>, overlay: [f32; 4]) {
         size.x = size.x.max(2.0);
         size.y = size.y.max(2.0);
 
-        // dpi factor?
-        let pos = pos * 2.0 * self.scale_factor();
-        let mut pos = pos - self.window_size;
+        pos = pos * 2.0 * self.scale_factor();
+        pos = pos - self.window_size;
         pos.x += self.centering_x_offset();
-        let pos = pos.div_element_wise(self.window_size);
+        pos = pos.div_element_wise(self.window_size);
 
-        let sprite_size = size
+        let mut dimensions = size
             .div_element_wise(self.window_size)
             * self.scale_factor();
         
-        let x = pos.x;
-        let y = -pos.y;
-        let s_w = sprite_size.x;
-        let s_h = -sprite_size.y;
+        pos.y = -pos.y;
+        dimensions.y = -dimensions.y;
 
-        let overlay = [1.0, 0.0, 0.0, 1.0];
+        self.render(pos, dimensions, crate::ZERO, crate::ZERO, overlay, true);
+    }
+
+    fn render(&mut self, center: Vector2<f32>, dimensions: Vector2<f32>, uv_top_left: Vector2<f32>, uv_dimensions: Vector2<f32>, overlay: [f32; 4], overlay_only: bool) {
+        let len = self.vertices.len() as i16;
+
+        let c = center;
+        let d = dimensions;
+        let uv = uv_top_left;
+        let uv_d = uv_dimensions;
+        let overlay_only = if overlay_only { 1 } else { 0 };
 
         self.vertices.extend_from_slice(&[
-            Vertex{pos: [x + s_w, y - s_h], uv: [0.0; 2], overlay},
-            Vertex{pos: [x - s_w, y - s_h], uv: [0.0; 2], overlay},
-            Vertex{pos: [x - s_w, y + s_h], uv: [0.0; 2], overlay},
-            Vertex{pos: [x + s_w, y + s_h], uv: [0.0; 2], overlay},
+            Vertex{pos: [c.x + d.x, c.y - d.y], uv: [uv.x + uv_d.x, uv.y], overlay, overlay_only},
+            Vertex{pos: [c.x - d.x, c.y - d.y], uv: [uv.x, uv.y], overlay, overlay_only},
+            Vertex{pos: [c.x - d.x, c.y + d.y], uv: [uv.x, uv.y + uv_d.y], overlay, overlay_only},
+            Vertex{pos: [c.x + d.x, c.y + d.y], uv: [uv.x + uv_d.x, uv.y + uv_d.y], overlay, overlay_only},
         ]);
 
         self.indices.extend_from_slice(&[len, len + 1, len + 2, len + 2, len + 3, len]);
