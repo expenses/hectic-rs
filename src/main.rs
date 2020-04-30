@@ -137,7 +137,7 @@ async fn run() {
         Event::MainEventsCleared => {
             let mode: resources::Mode = *world.fetch();
             match mode {
-                resources::Mode::MainMenu(_) | resources::Mode::Stages(_) => menu_dispatcher.dispatch(&world),
+                resources::Mode::MainMenu(_) | resources::Mode::Stages(_) | resources::Mode::Controls(_) => menu_dispatcher.dispatch(&world),
                 resources::Mode::Playing => playing_dispatcher.dispatch(&world),
                 resources::Mode::Paused(_) => paused_dispatcher.dispatch(&world),
                 resources::Mode::Quit => *control_flow = ControlFlow::Exit,
@@ -149,7 +149,6 @@ async fn run() {
                     stages::stage_two(&mut world);
                     *world.fetch_mut() = resources::Mode::Playing;
                 }
-                resources::Mode::Controls(_) => {},
             }
 
             world.maintain();

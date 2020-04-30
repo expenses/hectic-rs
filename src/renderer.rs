@@ -390,7 +390,7 @@ impl BufferRenderer {
         self.indices.extend_from_slice(&[len, len + 1, len + 2, len + 2, len + 3, len]);
     }
 
-    pub fn render_text(&mut self, text: &Text, mut pos: Vector2<f32>) {
+    pub fn render_text(&mut self, text: &Text, mut pos: Vector2<f32>, color: [f32; 4]) {
         pos.x += self.centering_x_offset() / self.scale_factor() / 2.0;
 
         let scale = match text.font {
@@ -406,7 +406,7 @@ impl BufferRenderer {
                 wgpu_glyph::OwnedSectionText {
                     text: text.text.clone(),
                     scale: wgpu_glyph::Scale::uniform(scale * self.scale_factor()),
-                    color: [1.0; 4],
+                    color,
                     font_id: wgpu_glyph::FontId(text.font),
                     custom: wgpu_glyph::DrawMode::pixelated(2.0 * self.scale_factor()),
                 }

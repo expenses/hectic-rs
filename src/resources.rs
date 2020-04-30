@@ -2,7 +2,7 @@ use winit::event::VirtualKeyCode;
 use cgmath::Vector2;
 use rand::Rng;
 use crate::components::Player;
-
+use std::borrow::Cow;
 use serde::{Serialize, Deserialize};
 
 #[derive(Clone, Copy, Debug)]
@@ -24,21 +24,26 @@ impl Default for Mode {
 }
 
 impl Mode {
-    pub fn as_menu(&mut self) -> Option<Menu> {
+    pub fn as_menu(&mut self, ctrl_state: &ControlsState) -> Option<Menu> {
         match self {
             Mode::Paused(selected) => Some(Menu {
-                title: "Paused".into(),
-                items: vec!["Resume".into(), "Main Menu".into()],
+                title: "Paused",
+                items: vec![Item::new("Resume"), Item::new("Main Menu")],
                 selected,
             }),
             Mode::MainMenu(selected) => Some(Menu {
-                title: "Hectic".into(),
-                items: vec!["Play".into(), "Controls".into(), "Quit".into()],
+                title: "Hectic",
+                items: vec![Item::new("Play"), Item::new("Controls"), Item::new("Quit")],
                 selected,
             }),
             Mode::Stages(selected) => Some(Menu {
-                title: "Stages".into(),
-                items: vec!["Stage One".into(), "Stage Two".into(), "Back".into()],
+                title: "Stages",
+                items: vec![Item::new("Stage One"), Item::new("Stage Two"), Item::new("Back")],
+                selected,
+            }),
+            Mode::Controls(selected) => Some(Menu {
+                title: "Controls",
+                items: ctrl_state.as_items(),
                 selected,
             }),
             _ => None,
@@ -56,6 +61,25 @@ pub struct ControlsState {
 }
 
 impl ControlsState {
+    pub fn as_items(&self) -> Vec<Item> {
+        let mut items = vec![
+            Item::unactive("General:"),
+            Item::owned(format!("pause: {:?}", self.pause.key)),
+            Item::owned(format!("debug: {:?}", self.debug.key)),
+        ];
+
+        items.push(Item::unactive("Single Player:"));
+        items.extend_from_slice(&self.single_player.as_items());
+        items.push(Item::unactive("Player One (Multiplayer):"));
+        items.extend_from_slice(&self.player_1.as_items());
+        items.push(Item::unactive("Player Two (Multiplayer):"));
+        items.extend_from_slice(&self.player_2.as_items());
+        
+        items.push(Item::new("Back"));
+
+        items
+    }
+
     pub fn press(&mut self, key: VirtualKeyCode, pressed: bool) {
         self.single_player.press(key, pressed);
         self.player_1.press(key, pressed);
@@ -123,6 +147,16 @@ pub struct PlayerControlsState {
 }
 
 impl PlayerControlsState {
+    pub fn as_items(&self) -> Vec<Item> {
+        vec![
+            Item::owned(format!("up: {:?}", self.up.key)),
+            Item::owned(format!("left: {:?}", self.left.key)),
+            Item::owned(format!("right: {:?}", self.right.key)),
+            Item::owned(format!("down: {:?}", self.down.key)),
+            Item::owned(format!("fire: {:?}", self.fire.key)),
+        ]
+    }
+
     fn single_player() -> Self {
         Self {
             up: KeyState::new(VirtualKeyCode::Up),
@@ -236,20 +270,57 @@ impl PlayerPositions {
 }
 
 pub struct Menu<'a> {
-    pub title: String,
-    pub items: Vec<String>,
+    pub title: &'static str,
+    pub items: Vec<Item>,
     pub selected: &'a mut usize,
 }
 
 impl<'a> Menu<'a> {
     pub fn rotate_down(&mut self) {
-        *self.selected = (*self.selected + 1) % self.items.len();
+        let mut done = false;
+        while !done {
+            *self.selected = (*self.selected + 1) % self.items.len();
+            done = self.items[*self.selected].active;
+        }
     }
 
     pub fn rotate_up(&mut self) {
-        *self.selected = match self.selected.checked_sub(1) {
-            None => self.items.len() - 1,
-            Some(selected) => selected
+        let mut done = false;
+        while !done {
+            *self.selected = match self.selected.checked_sub(1) {
+                None => self.items.len() - 1,
+                Some(selected) => selected
+            };
+            done = self.items[*self.selected].active;
+        }
+    }
+}
+
+#[derive(Clone)]
+pub struct Item {
+    pub text: Cow<'static, str>,
+    pub active: bool,
+}
+
+impl Item {
+    pub fn new(text: &'static str) -> Self {
+        Self {
+            text: text.into(),
+            active: true,
+        }
+    }
+
+    pub fn unactive(text: &'static str) -> Self {
+        Self {
+            text: text.into(),
+            active: false,
+        }
+    } 
+
+    pub fn owned(text: String) -> Self {
+        Self {
+            text: text.into(),
+            active: true,
         }
     }
 }

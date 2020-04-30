@@ -67,7 +67,7 @@ impl<'a> System<'a> for RenderText {
 
     fn run(&mut self, (pos, text, mut renderer): Self::SystemData) {
         for (pos, text) in (&pos, &text).join() {
-            renderer.render_text(text, pos.0);
+            renderer.render_text(text, pos.0, [1.0; 4]);
         }
     }
 }
@@ -85,7 +85,7 @@ impl<'a> System<'a> for RenderUI {
                 text: format!("Health: {}", health),
                 font: 1,
                 layout: wgpu_glyph::Layout::default()
-            }, Vector2::new(0.0, 0.0));
+            }, Vector2::new(0.0, 0.0), [1.0; 4]);
         }
 
         if let Some(health) = join.next() {
@@ -93,7 +93,7 @@ impl<'a> System<'a> for RenderUI {
                 text: format!("Health: {}", health),
                 font: 1,
                 layout: wgpu_glyph::Layout::default()
-            }, Vector2::new(0.0, 20.0));
+            }, Vector2::new(0.0, 20.0), [1.0; 4]);
         }
     }
 }
@@ -101,20 +101,20 @@ impl<'a> System<'a> for RenderUI {
 pub struct RenderMenu;
 
 impl<'a> System<'a> for RenderMenu {
-    type SystemData = (Write<'a, Renderer>, Write<'a, Mode>);
+    type SystemData = (Write<'a, Renderer>, Write<'a, Mode>, Read<'a, ControlsState>);
 
-    fn run(&mut self, (mut renderer, mut mode): Self::SystemData) {
-        if let Some(menu) = mode.as_menu() {
-            renderer.render_text(&Text::title(&menu.title), Vector2::new(WIDTH / 2.0, 40.0));
+    fn run(&mut self, (mut renderer, mut mode, ctrl_state): Self::SystemData) {
+        if let Some(menu) = mode.as_menu(&ctrl_state) {
+            renderer.render_text(&Text::title(&menu.title), Vector2::new(WIDTH / 2.0, 40.0), [1.0; 4]);
 
-            let mut x = 200.0;
+            let mut x = 190.0;
 
             for (i, item) in menu.items.iter().enumerate() {
                 renderer.render_text(&Text {
-                    text: if i == *menu.selected { format!("> {}", item) } else { item.clone() },
+                    text: if i == *menu.selected { format!("> {}", item.text) } else { item.text.to_string() },
                     font: 1,
                     layout: wgpu_glyph::Layout::default().h_align(wgpu_glyph::HorizontalAlign::Center)
-                }, Vector2::new(WIDTH / 2.0, x));
+                }, Vector2::new(WIDTH / 2.0, x), if item.active { [1.0; 4] } else { [0.5, 0.5, 0.5, 1.0] });
                 x += 20.0;
             }
         }

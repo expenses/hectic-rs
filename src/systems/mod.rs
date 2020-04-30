@@ -85,9 +85,9 @@ impl<'a> System<'a> for ControlMenu {
     type SystemData = (Write<'a, ControlsState>, Write<'a, Mode>);
 
     fn run(&mut self, (mut ctrl_state, mut mode): Self::SystemData) {
-        let player_ctrl_state = ctrl_state.get_mut(Player::Single);
+        if let Some(mut menu) = mode.as_menu(&ctrl_state) {
+            let player_ctrl_state = ctrl_state.get_mut(Player::Single);
 
-        if let Some(mut menu) = mode.as_menu() {
             if player_ctrl_state.down.pressed {
                 menu.rotate_down();
                 player_ctrl_state.down.pressed = false;
