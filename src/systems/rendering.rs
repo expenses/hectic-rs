@@ -101,20 +101,22 @@ impl<'a> System<'a> for RenderUI {
 pub struct RenderMenu;
 
 impl<'a> System<'a> for RenderMenu {
-    type SystemData = (Write<'a, Renderer>, Read<'a, Menu>);
+    type SystemData = (Write<'a, Renderer>, Write<'a, Mode>);
 
-    fn run(&mut self, (mut renderer, menu): Self::SystemData) {
-        renderer.render_text(&Text::title(&menu.title), Vector2::new(WIDTH / 2.0, 40.0));
+    fn run(&mut self, (mut renderer, mut mode): Self::SystemData) {
+        if let Some(menu) = mode.as_menu() {
+            renderer.render_text(&Text::title(&menu.title), Vector2::new(WIDTH / 2.0, 40.0));
 
-        let mut x = 200.0;
+            let mut x = 200.0;
 
-        for (i, item) in menu.items.iter().enumerate() {
-            renderer.render_text(&Text {
-                text: if i == menu.selected { format!("> {}", item) } else { item.clone() },
-                font: 1,
-                layout: wgpu_glyph::Layout::default().h_align(wgpu_glyph::HorizontalAlign::Center)
-            }, Vector2::new(WIDTH / 2.0, x));
-            x += 20.0;
+            for (i, item) in menu.items.iter().enumerate() {
+                renderer.render_text(&Text {
+                    text: if i == *menu.selected { format!("> {}", item) } else { item.clone() },
+                    font: 1,
+                    layout: wgpu_glyph::Layout::default().h_align(wgpu_glyph::HorizontalAlign::Center)
+                }, Vector2::new(WIDTH / 2.0, x));
+                x += 20.0;
+            }
         }
     }
 }

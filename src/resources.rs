@@ -5,16 +5,44 @@ use crate::components::Player;
 
 use serde::{Serialize, Deserialize};
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub enum Mode {
     Playing,
-    Paused,
-    MainMenu
+    Paused(usize),
+    MainMenu(usize),
+    Controls(usize),
+    Quit,
+    Stages(usize),
+    StageOne,
+    StageTwo,
 }
 
 impl Default for Mode {
     fn default() -> Self {
-        Mode::MainMenu
+        Mode::MainMenu(0)
+    }
+}
+
+impl Mode {
+    pub fn as_menu(&mut self) -> Option<Menu> {
+        match self {
+            Mode::Paused(selected) => Some(Menu {
+                title: "Paused".into(),
+                items: vec!["Resume".into(), "Main Menu".into()],
+                selected,
+            }),
+            Mode::MainMenu(selected) => Some(Menu {
+                title: "Hectic".into(),
+                items: vec!["Play".into(), "Controls".into(), "Quit".into()],
+                selected,
+            }),
+            Mode::Stages(selected) => Some(Menu {
+                title: "Stages".into(),
+                items: vec!["Stage One".into(), "Stage Two".into(), "Back".into()],
+                selected,
+            }),
+            _ => None,
+        }
     }
 }
 
@@ -207,20 +235,19 @@ impl PlayerPositions {
     }
 }
 
-#[derive(Default)]
-pub struct Menu {
+pub struct Menu<'a> {
     pub title: String,
     pub items: Vec<String>,
-    pub selected: usize,
+    pub selected: &'a mut usize,
 }
 
-impl Menu {
+impl<'a> Menu<'a> {
     pub fn rotate_down(&mut self) {
-        self.selected = (self.selected + 1) % self.items.len();
+        *self.selected = (*self.selected + 1) % self.items.len();
     }
 
     pub fn rotate_up(&mut self) {
-        self.selected = match self.selected.checked_sub(1) {
+        *self.selected = match self.selected.checked_sub(1) {
             None => self.items.len() - 1,
             Some(selected) => selected
         }

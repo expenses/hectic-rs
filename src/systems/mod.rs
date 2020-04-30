@@ -65,21 +65,13 @@ fn max(a: f32, b: f32) -> f32 {
 pub struct TogglePaused;
 
 impl<'a> System<'a> for TogglePaused {
-    type SystemData = (Write<'a, ControlsState>, Write<'a, Mode>, Write<'a, Menu>);
+    type SystemData = (Write<'a, ControlsState>, Write<'a, Mode>);
 
-    fn run(&mut self, (mut ctrl_state, mut mode, mut menu): Self::SystemData) {
+    fn run(&mut self, (mut ctrl_state, mut mode): Self::SystemData) {
         if ctrl_state.pause.pressed {
             *mode = match *mode {
-                Mode::Playing => {
-                    *menu = Menu {
-                        title: "Paused".into(),
-                        items: vec!["Resume".into(), "Main Menu".into()],
-                        selected: 0
-                    };
-    
-                    Mode::Paused
-                },
-                Mode::Paused => Mode::Playing,
+                Mode::Playing => Mode::Paused(0),
+                Mode::Paused(_) => Mode::Playing,
                 _ => *mode
             };
             ctrl_state.pause.pressed = false;
@@ -87,15 +79,15 @@ impl<'a> System<'a> for TogglePaused {
     }
 }
 
-pub struct PauseMenu;
+pub struct ControlMenu;
 
-impl<'a> System<'a> for PauseMenu {
-    type SystemData = (Write<'a, ControlsState>, Write<'a, Mode>, Write<'a, Menu>, ReadStorage<'a, Player>);
+impl<'a> System<'a> for ControlMenu {
+    type SystemData = (Write<'a, ControlsState>, Write<'a, Mode>);
 
-    fn run(&mut self, (mut ctrl_state, mut mode, mut menu, player): Self::SystemData) {
-        for player in (&player).join() {
-            let player_ctrl_state = ctrl_state.get_mut(*player);
+    fn run(&mut self, (mut ctrl_state, mut mode): Self::SystemData) {
+        let player_ctrl_state = ctrl_state.get_mut(Player::Single);
 
+        if let Some(mut menu) = mode.as_menu() {
             if player_ctrl_state.down.pressed {
                 menu.rotate_down();
                 player_ctrl_state.down.pressed = false;
@@ -107,11 +99,32 @@ impl<'a> System<'a> for PauseMenu {
             }
 
             if player_ctrl_state.fire.pressed {
-                *mode = match menu.selected {
-                    0 => Mode::Playing,
-                    1 => Mode::MainMenu,
-                    _ => unreachable!()
-                };
+                match *mode {
+                    Mode::Paused(selected) => {
+                        *mode = match selected {
+                            0 => Mode::Playing,
+                            1 => Mode::MainMenu(0),
+                            _ => unreachable!()
+                        }
+                    },
+                    Mode::MainMenu(selected) => {
+                        *mode = match selected {
+                            0 => Mode::Stages(0),
+                            1 => Mode::Controls(0),
+                            2 => Mode::Quit,
+                            _ => unreachable!()
+                        };
+                    },
+                    Mode::Stages(selected) => {
+                        *mode = match selected {
+                            0 => Mode::StageOne,
+                            1 => Mode::StageTwo,
+                            2 => Mode::MainMenu(0),
+                            _ => unreachable!()
+                        }
+                    }
+                    _ => {}
+                }
 
                 player_ctrl_state.fire.pressed = false;
             }

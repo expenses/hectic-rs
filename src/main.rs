@@ -64,10 +64,7 @@ async fn run() {
     world.insert(resources::BulletSpawner::default());
     world.insert(resources::DamageTracker::default());
     world.insert(resources::PlayerPositions::default());
-    world.insert(resources::Menu::default());
-    world.insert(resources::Mode::Playing);
-
-    stages::stage_two(&mut world);
+    world.insert(resources::Mode::default());
     
     let db = DispatcherBuilder::new()
         .with(systems::TogglePaused, "TogglePaused", &[])
@@ -95,13 +92,18 @@ async fn run() {
 
     let mut paused_dispatcher = DispatcherBuilder::new()
         .with(systems::TogglePaused, "TogglePaused", &[])
-        .with(systems::PauseMenu, "PauseMenu", &[])
+        .with(systems::ControlMenu, "ControlMenu", &[])
         .with(systems::RenderSprite, "RenderSprite", &[])
         .with(systems::RenderText, "RenderText", &["RenderSprite"])
         .with(systems::RenderHitboxes, "RenderHitboxes", &["RenderSprite"])
         .with(systems::RenderUI, "RenderUI", &["RenderSprite"])
         .with(systems::RenderPauseBackground, "RenderPauseBackground", &["RenderSprite"])
         .with(systems::RenderMenu, "RenderMenu", &["RenderSprite"])
+        .build();
+
+    let mut menu_dispatcher = DispatcherBuilder::new()
+        .with(systems::ControlMenu, "ControlMenu", &[])
+        .with(systems::RenderMenu, "RenderMenu", &[])
         .build();
 
     event_loop.run(move |event, _, control_flow| match event {
@@ -135,9 +137,19 @@ async fn run() {
         Event::MainEventsCleared => {
             let mode: resources::Mode = *world.fetch();
             match mode {
-                resources::Mode::MainMenu => {},
+                resources::Mode::MainMenu(_) | resources::Mode::Stages(_) => menu_dispatcher.dispatch(&world),
                 resources::Mode::Playing => playing_dispatcher.dispatch(&world),
-                resources::Mode::Paused => paused_dispatcher.dispatch(&world),
+                resources::Mode::Paused(_) => paused_dispatcher.dispatch(&world),
+                resources::Mode::Quit => *control_flow = ControlFlow::Exit,
+                resources::Mode::StageOne => {
+                    stages::stage_one(&mut world);
+                    *world.fetch_mut() = resources::Mode::Playing;
+                },
+                resources::Mode::StageTwo => {
+                    stages::stage_two(&mut world);
+                    *world.fetch_mut() = resources::Mode::Playing;
+                }
+                resources::Mode::Controls(_) => {},
             }
 
             world.maintain();
