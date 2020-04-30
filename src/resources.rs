@@ -3,12 +3,15 @@ use cgmath::Vector2;
 use rand::Rng;
 use crate::components::Player;
 
+use serde::{Serialize, Deserialize};
+
+#[derive(Serialize, Deserialize)]
 pub struct ControlsState {
+    pub pause: KeyState,
+    pub debug: KeyState,
     single_player: PlayerControlsState,
     player_1: PlayerControlsState,
     player_2: PlayerControlsState,
-    pub pause: KeyState,
-    pub debug: KeyState,
 }
 
 impl ControlsState {
@@ -27,6 +30,26 @@ impl ControlsState {
             Player::Two => &self.player_2,
         }
     }
+
+    pub fn load() -> Self {
+        match std::fs::read("controls.toml") {
+            Ok(vec) => match toml::from_slice(&vec) {
+                Ok(controls) => controls,
+                Err(err) => panic!("{}", err)
+            },
+            Err(err) => {
+                if !matches!(err.kind(), std::io::ErrorKind::NotFound) {
+                    log::warn!("Failed to read `controls.toml` with: {}. Switching to default controls.", err);
+                }
+                Self::default()
+            }
+        }
+    }
+
+    pub fn save(&self) {
+        let vec = toml::to_vec(self).unwrap();
+        std::fs::write("controls.toml", vec).unwrap();
+    }
 }
 
 impl Default for ControlsState {
@@ -41,7 +64,7 @@ impl Default for ControlsState {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct PlayerControlsState {
     pub up: KeyState,
     pub left: KeyState,
@@ -86,9 +109,11 @@ impl PlayerControlsState {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(transparent)]
 pub struct KeyState {
     key: VirtualKeyCode,
+    #[serde(skip)] 
     pub pressed: bool
 }
 
