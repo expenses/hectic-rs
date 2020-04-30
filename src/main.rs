@@ -64,11 +64,13 @@ async fn run() {
     world.insert(resources::BulletSpawner::default());
     world.insert(resources::DamageTracker::default());
     world.insert(resources::PlayerPositions::default());
+    world.insert(resources::Menu::default());
     world.insert(resources::Mode::Playing);
 
     stages::stage_two(&mut world);
     
     let db = DispatcherBuilder::new()
+        .with(systems::TogglePaused, "TogglePaused", &[])
         .with(systems::KillOffscreen, "KillOffscreen", &[])
         .with(systems::MoveEntities, "MoveEntities", &[])
         .with(systems::Control, "Control", &[])
@@ -92,13 +94,15 @@ async fn run() {
     let mut playing_dispatcher = db.build();
 
     let mut paused_dispatcher = DispatcherBuilder::new()
+        .with(systems::TogglePaused, "TogglePaused", &[])
+        .with(systems::PauseMenu, "PauseMenu", &[])
         .with(systems::RenderSprite, "RenderSprite", &[])
         .with(systems::RenderText, "RenderText", &["RenderSprite"])
         .with(systems::RenderHitboxes, "RenderHitboxes", &["RenderSprite"])
         .with(systems::RenderUI, "RenderUI", &["RenderSprite"])
-        .with(systems::RenderPauseScreen, "RenderPauseScreen", &["RenderSprite"])
+        .with(systems::RenderPauseBackground, "RenderPauseBackground", &["RenderSprite"])
+        .with(systems::RenderMenu, "RenderMenu", &["RenderSprite"])
         .build();
-
 
     event_loop.run(move |event, _, control_flow| match event {
         Event::WindowEvent { event, .. } => match event {
@@ -123,27 +127,14 @@ async fn run() {
 
                 match code {
                     VirtualKeyCode::Escape => *control_flow = ControlFlow::Exit,
-                    _ => {
-                        let mut controls = world.fetch_mut::<resources::ControlsState>();
-                        let mut mode = world.fetch_mut::<resources::Mode>();
-                        
-                        controls.press(code, pressed);
-
-                        if controls.pause.pressed {
-                            *mode = match *mode {
-                                resources::Mode::Playing => resources::Mode::Paused,
-                                resources::Mode::Paused => resources::Mode::Playing,
-                                _ => *mode
-                            };
-                            controls.pause.pressed = false;
-                        }
-                    },
+                    _ => world.fetch_mut::<resources::ControlsState>().press(code, pressed),
                 }
             }
             _ => {}
         },
         Event::MainEventsCleared => {
-            match *world.fetch() {
+            let mode: resources::Mode = *world.fetch();
+            match mode {
                 resources::Mode::MainMenu => {},
                 resources::Mode::Playing => playing_dispatcher.dispatch(&world),
                 resources::Mode::Paused => paused_dispatcher.dispatch(&world),

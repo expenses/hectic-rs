@@ -50,14 +50,13 @@ impl<'a> System<'a> for RenderHitboxes {
     }
 }
 
-pub struct RenderPauseScreen;
+pub struct RenderPauseBackground;
 
-impl<'a> System<'a> for RenderPauseScreen {
+impl<'a> System<'a> for RenderPauseBackground {
     type SystemData = Write<'a, Renderer>;
 
     fn run(&mut self, mut renderer: Self::SystemData) {
         renderer.render_box(Vector2::new(WIDTH / 2.0, HEIGHT / 2.0), Vector2::new(WIDTH, HEIGHT), [0.0, 0.0, 0.0, 0.5]);
-        renderer.render_text(&Text::title("Paused"), Vector2::new(WIDTH / 2.0, 40.0));
     }
 }
 
@@ -95,6 +94,27 @@ impl<'a> System<'a> for RenderUI {
                 font: 1,
                 layout: wgpu_glyph::Layout::default()
             }, Vector2::new(0.0, 20.0));
+        }
+    }
+}
+
+pub struct RenderMenu;
+
+impl<'a> System<'a> for RenderMenu {
+    type SystemData = (Write<'a, Renderer>, Read<'a, Menu>);
+
+    fn run(&mut self, (mut renderer, menu): Self::SystemData) {
+        renderer.render_text(&Text::title(&menu.title), Vector2::new(WIDTH / 2.0, 40.0));
+
+        let mut x = 200.0;
+
+        for (i, item) in menu.items.iter().enumerate() {
+            renderer.render_text(&Text {
+                text: if i == menu.selected { format!("> {}", item) } else { item.clone() },
+                font: 1,
+                layout: wgpu_glyph::Layout::default().h_align(wgpu_glyph::HorizontalAlign::Center)
+            }, Vector2::new(WIDTH / 2.0, x));
+            x += 20.0;
         }
     }
 }

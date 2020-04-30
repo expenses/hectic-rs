@@ -46,8 +46,6 @@ impl<'a> System<'a> for MoveEntities {
     }
 }
 
-pub struct Control;
-
 fn min(a: f32, b: f32) -> f32 {
     if a < b {
         a
@@ -63,6 +61,65 @@ fn max(a: f32, b: f32) -> f32 {
         b
     }
 }
+
+pub struct TogglePaused;
+
+impl<'a> System<'a> for TogglePaused {
+    type SystemData = (Write<'a, ControlsState>, Write<'a, Mode>, Write<'a, Menu>);
+
+    fn run(&mut self, (mut ctrl_state, mut mode, mut menu): Self::SystemData) {
+        if ctrl_state.pause.pressed {
+            *mode = match *mode {
+                Mode::Playing => {
+                    *menu = Menu {
+                        title: "Paused".into(),
+                        items: vec!["Resume".into(), "Main Menu".into()],
+                        selected: 0
+                    };
+    
+                    Mode::Paused
+                },
+                Mode::Paused => Mode::Playing,
+                _ => *mode
+            };
+            ctrl_state.pause.pressed = false;
+        }
+    }
+}
+
+pub struct PauseMenu;
+
+impl<'a> System<'a> for PauseMenu {
+    type SystemData = (Write<'a, ControlsState>, Write<'a, Mode>, Write<'a, Menu>, ReadStorage<'a, Player>);
+
+    fn run(&mut self, (mut ctrl_state, mut mode, mut menu, player): Self::SystemData) {
+        for player in (&player).join() {
+            let player_ctrl_state = ctrl_state.get_mut(*player);
+
+            if player_ctrl_state.down.pressed {
+                menu.rotate_down();
+                player_ctrl_state.down.pressed = false;
+            }
+
+            if player_ctrl_state.up.pressed {
+                menu.rotate_up();
+                player_ctrl_state.up.pressed = false;
+            }
+
+            if player_ctrl_state.fire.pressed {
+                *mode = match menu.selected {
+                    0 => Mode::Playing,
+                    1 => Mode::MainMenu,
+                    _ => unreachable!()
+                };
+
+                player_ctrl_state.fire.pressed = false;
+            }
+        }
+    }
+}
+
+pub struct Control;
 
 impl<'a> System<'a> for Control {
     type SystemData = (

@@ -44,6 +44,14 @@ impl ControlsState {
         }
     }
 
+    pub fn get_mut(&mut self, player: Player) -> &mut PlayerControlsState {
+        match player {
+            Player::Single => &mut self.single_player,
+            Player::One => &mut self.player_1,
+            Player::Two => &mut self.player_2,
+        }
+    }
+
     pub fn load() -> Self {
         match std::fs::read("controls.toml") {
             Ok(vec) => match toml::from_slice(&vec) {
@@ -196,5 +204,25 @@ impl PlayerPositions {
         }
         let index = rng.gen_range(0, self.0.len());
         self.0[index]
+    }
+}
+
+#[derive(Default)]
+pub struct Menu {
+    pub title: String,
+    pub items: Vec<String>,
+    pub selected: usize,
+}
+
+impl Menu {
+    pub fn rotate_down(&mut self) {
+        self.selected = (self.selected + 1) % self.items.len();
+    }
+
+    pub fn rotate_up(&mut self) {
+        self.selected = match self.selected.checked_sub(1) {
+            None => self.items.len() - 1,
+            Some(selected) => selected
+        }
     }
 }
