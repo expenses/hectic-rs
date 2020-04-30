@@ -10,5 +10,9 @@ layout(set = 0, binding = 1) uniform sampler samp;
 void main() {
     vec4 texture_colour = texture(sampler2D(tex, samp), out_uv);
 
+    if (texture_colour.a == 0.0) {
+        discard;
+    }
+
     outColor = vec4(mix(texture_colour.rgb, out_overlay.rgb, out_overlay.a), texture_colour.a);
 }

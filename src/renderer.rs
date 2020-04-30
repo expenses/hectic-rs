@@ -17,6 +17,8 @@ pub struct Renderer {
     surface: wgpu::Surface,
     bind_group: wgpu::BindGroup,
     glyph_brush: wgpu_glyph::GlyphBrush<'static, ()>,
+    // Need to hold the adapter for https://bugzilla.mozilla.org/show_bug.cgi?id=1634239
+    _adapter: wgpu::Adapter,
 }
 
 impl Renderer {
@@ -198,7 +200,7 @@ impl Renderer {
             },
             sample_count: 1,
             sample_mask: !0,
-            alpha_to_coverage_enabled: false,
+            alpha_to_coverage_enabled: true,
         });
     
         let swap_chain_desc = wgpu::SwapChainDescriptor {
@@ -221,7 +223,7 @@ impl Renderer {
         };
 
         let renderer = Self {
-            swap_chain, pipeline, window, device, queue, swap_chain_desc, surface, bind_group, glyph_brush,
+            swap_chain, pipeline, window, device, queue, swap_chain_desc, surface, bind_group, glyph_brush, _adapter: adapter,
         };
 
         (renderer, buffer_renderer)

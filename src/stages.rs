@@ -136,9 +136,11 @@ pub fn stage_two(world: &mut World) {
 
     create_background(world, graphics::Image::Graveyard, ZERO, Vector2::new(0.0, 0.5));
     create_background(world, graphics::Image::Graveyard, Vector2::new(0.0, 1440.0), Vector2::new(0.0, 0.5));
-    create_background(world, graphics::Image::Fog, ZERO, Vector2::new(0.0, 0.5));
-    create_background(world, graphics::Image::Fog, Vector2::new(0.0, 1920.0), Vector2::new(0.0, 0.5));
-    create_background(world, graphics::Image::Darkness, ZERO, ZERO);
+    if cfg!(feature = "native") {
+        create_background(world, graphics::Image::Fog, ZERO, Vector2::new(0.0, 0.5));
+        create_background(world, graphics::Image::Fog, Vector2::new(0.0, 1920.0), Vector2::new(0.0, 0.5));
+        create_background(world, graphics::Image::Darkness, ZERO, ZERO);
+    }
     create_title(world, "Stage\nTwo");
     create_players(world, false);
 
