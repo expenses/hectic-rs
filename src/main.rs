@@ -2,7 +2,7 @@ use winit::{
     event::{ElementState, Event, KeyboardInput, VirtualKeyCode, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
 };
-
+use cgmath::Vector2;
 use specs::prelude::*;
 
 mod graphics;
@@ -160,3 +160,5 @@ async fn run() {
 
 const WIDTH: f32 = 480.0;
 const HEIGHT: f32 = 640.0;
+const ZERO: Vector2<f32> = Vector2::new(0.0, 0.0);
+const MIDDLE: Vector2<f32> = Vector2::new(WIDTH / 2.0, HEIGHT / 2.0);

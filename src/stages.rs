@@ -1,11 +1,8 @@
 use specs::prelude::*;
-use crate::{components, graphics, WIDTH, HEIGHT};
+use crate::{components, graphics, WIDTH, HEIGHT, ZERO, MIDDLE};
 use components::Curve;
 use cgmath::Vector2;
 use rand::Rng;
-
-pub const ZERO: Vector2<f32> = Vector2::new(0.0, 0.0);
-pub const MIDDLE: Vector2<f32> = Vector2::new(WIDTH / 2.0, HEIGHT / 2.0);
 
 pub fn stage_one(world: &mut World) {
     create_background(world, graphics::Image::NightSky, ZERO, ZERO);
