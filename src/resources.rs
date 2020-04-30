@@ -33,8 +33,8 @@ impl Default for ControlsState {
     fn default() -> Self {
         Self {
             single_player: PlayerControlsState::single_player(),
-            player_1: PlayerControlsState::single_player(),
-            player_2: PlayerControlsState::single_player(),
+            player_1: PlayerControlsState::player_one(),
+            player_2: PlayerControlsState::player_two(),
             pause: KeyState::new(VirtualKeyCode::P),
             debug: KeyState::new(VirtualKeyCode::Semicolon),
         }
@@ -57,7 +57,23 @@ impl PlayerControlsState {
             left: KeyState::new(VirtualKeyCode::Left),
             right: KeyState::new(VirtualKeyCode::Right),
             down: KeyState::new(VirtualKeyCode::Down),
-            fire: KeyState::new(VirtualKeyCode::Z)
+            fire: KeyState::new(VirtualKeyCode::Z),
+        }
+    }
+
+    fn player_one() -> Self {
+        let mut controls = Self::single_player();
+        controls.fire = KeyState::new(VirtualKeyCode::Slash);
+        controls
+    }
+
+    fn player_two() -> Self {
+        Self {
+            up: KeyState::new(VirtualKeyCode::W),
+            left: KeyState::new(VirtualKeyCode::A),
+            right: KeyState::new(VirtualKeyCode::D),
+            down: KeyState::new(VirtualKeyCode::S),
+            fire: KeyState::new(VirtualKeyCode::V),
         }
     }
 
