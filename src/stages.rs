@@ -107,7 +107,7 @@ fn create_player(world: &mut World, player: components::Player, position: Vector
             .with(components::Cooldown::new(0.075))
             .with(components::Hitbox(Vector2::new(10.0, 10.0)))
             .with(components::Friendly)
-            .with(components::Health(2))
+            .with(components::Health(3))
             .with(components::Invulnerability::new())
             .build();
 }
@@ -180,32 +180,3 @@ fn flying_skull(world: &mut World, start: f32, position: Vector2<f32>) {
         .with(components::TargetPlayer(10.0 / 3.0))
         .build();
 }
-
-/*
-Stage stageTwo() {
-    // Add a bunch of spectres
-
-    BulletFactory darkBullets = new BulletFactory(resources.darkBullet, 200);
-    for (float s = 5; s < 20; s += 0.5) {
-        stage.add(s, new Spectre(new HorizontalCurve(random(0, HEIGHT/2), random(0, HEIGHT/2), true), new AtPlayer(1, 0, 1, darkBullets)));
-    }
-
-    // Lots of flying skulls on all sides! AAahh!!
-
-    for (float s = 25; s < 45; s += 0.5) {
-        stage.add(s, new FlyingSkull(new TargetPlayer(random(0, WIDTH), -25)));
-
-        if (s >= 30) {
-            stage.add(s, new FlyingSkull(new TargetPlayer(random(0, WIDTH), -25)));
-            stage.add(s, new FlyingSkull(new TargetPlayer(-25, random(0, HEIGHT/2))));
-            stage.add(s, new FlyingSkull(new TargetPlayer(WIDTH + 25, random(0, HEIGHT/2))));
-        }
-    }
-
-    // And the boss again
-
-    stage.add(50, new BossTwo());
-
-    return stage;
-}
-*/

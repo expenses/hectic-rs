@@ -187,6 +187,13 @@ pub struct PlayerPositions(pub Vec<Vector2<f32>>);
 
 impl PlayerPositions {
     pub fn random(&self, rng: &mut rand::rngs::ThreadRng) -> Vector2<f32> {
+        // If there aren't any players, just aim wherever
+        if self.0.is_empty() {
+            return Vector2::new(
+                rng.gen_range(0.0, crate::WIDTH),
+                rng.gen_range(0.0, crate::HEIGHT)
+            );
+        }
         let index = rng.gen_range(0, self.0.len());
         self.0[index]
     }
