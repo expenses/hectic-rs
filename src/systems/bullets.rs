@@ -7,14 +7,14 @@ pub struct FireBullets;
 
 impl<'a> System<'a> for FireBullets {
     type SystemData = (
-        ReadStorage<'a, Position>, ReadStorage<'a, FiresBullets>, WriteStorage<'a, Cooldown>, ReadStorage<'a, FrozenUntil>,
+        ReadStorage<'a, Position>, ReadStorage<'a, FiresBullets>, WriteStorage<'a, Cooldown>, ReadStorage<'a, BeenOnscreen>,
         Write<'a, BulletSpawner>, Read<'a, GameTime>, Read<'a, PlayerPositions>,
     );
 
-    fn run(&mut self, (pos, fires, mut cooldown, frozen, mut spawner, time, player_positions): Self::SystemData) {
+    fn run(&mut self, (pos, fires, mut cooldown, onscreen, mut spawner, time, player_positions): Self::SystemData) {
         let mut rng = rand::thread_rng();
 
-        for (pos, fires, cooldown, _) in (&pos, &fires, &mut cooldown, !&frozen).join() {
+        for (pos, fires, cooldown, _) in (&pos, &fires, &mut cooldown, &onscreen).join() {
             if cooldown.is_ready(time.total_time) {
                 match fires.method {
                     FiringMethod::AtPlayer(total, spread) => {

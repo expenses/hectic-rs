@@ -258,4 +258,17 @@ impl Curve {
             speed,
         }
     }
+
+    pub fn circular(start_y: f32, force: f32, speed: f32) -> Self {
+        let offset = 20.0;
+
+        Self {
+            a: Vector2::new(-offset, start_y - force),
+            b: Vector2::new(-offset, start_y),
+            c: Vector2::new(WIDTH + offset, start_y),
+            d: Vector2::new(WIDTH + offset, start_y - force),
+            time: 0.0,
+            speed
+        }
+    }
 }

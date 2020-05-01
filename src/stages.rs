@@ -10,6 +10,8 @@ fn clear_world(world: &mut World) {
 }
 
 pub fn stage_one(world: &mut World, multiplayer: bool) {
+    let mut rng = rand::thread_rng();
+
     clear_world(world);
     create_background(world, graphics::Image::NightSky, ZERO, ZERO, 0);
     create_background(world, graphics::Image::Clouds, ZERO, Vector2::new(0.0, 1.0), 1);
@@ -17,12 +19,12 @@ pub fn stage_one(world: &mut World, multiplayer: bool) {
     create_title(world, "Stage\nOne");
     create_players(world, multiplayer);
 
-    for start in float_iter(10.0, 60.0, 0.25) {
+    for start in float_iter(1.0, 6.0, 0.25) {
         bat_with_curve(world, Curve::horizontal(100.0, 300.0, true, 2.5), start);
         bat_with_curve(world, Curve::horizontal(150.0, 350.0, true, 2.5), start);
     }
 
-    for start in float_iter(30.0, 100.0, 0.25) {
+    for start in float_iter(3.0, 10.0, 0.25) {
         bat_with_curve(world, Curve::horizontal(200.0, 400.0, false, 2.5), start);
         bat_with_curve(world, Curve::horizontal(250.0, 450.0, false, 2.5), start);
     }
@@ -55,6 +57,27 @@ pub fn stage_one(world: &mut World, multiplayer: bool) {
             .with(components::Cooldown::new(1.0))
             .build();
     }
+
+    for start in float_iter(25.0, 33.0, 0.25) {
+        bat_with_curve(world, Curve::circular(200.0, 1000.0, 2.5), start);
+    }
+
+    for start in float_iter(35.0, 45.0, 0.25) {
+        hell_bat(world, start, Vector2::new(rng.gen_range(0.0, WIDTH), -50.0));
+    }
+}
+
+fn hell_bat(world: &mut World, start: f32, position: Vector2<f32>) {
+    world.create_entity()
+        .with(components::Position(position))
+        .with(components::FrozenUntil(start))
+        .with(components::DieOffscreen)
+        .with(components::Enemy)
+        .with(components::Health(12))
+        .with(components::Image::from(graphics::Image::HellBat))
+        .with(components::Hitbox(Vector2::new(25.0, 20.0)))
+        .with(components::TargetPlayer(2.5))
+        .build();
 }
 
 fn bat_with_curve(world: &mut World, curve: components::Curve, start: f32) {
