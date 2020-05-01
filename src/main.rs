@@ -153,7 +153,6 @@ async fn run() {
                     *world.fetch_mut() = resources::Mode::Playing;
                 }
             }
-
             world.maintain();
             renderer.request_redraw();
         },

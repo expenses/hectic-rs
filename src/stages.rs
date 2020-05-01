@@ -43,8 +43,8 @@ pub fn stage_one(world: &mut World, multiplayer: bool) {
         enemy(
             world,
             Vector2::new(x * WIDTH, -50.0),
-            components::Movement::FiringMove(2.5, 34.0, 100.0),
-            23.0,
+            components::Movement::FiringMove { speed: 2.5, return_time: 34.0, stop_time: 25.0 },
+            24.0,
             15,
             graphics::Image::Gargoyle,
             Vector2::new(45.0, 25.0),
@@ -54,7 +54,7 @@ pub fn stage_one(world: &mut World, multiplayer: bool) {
                 speed: 2.5,
                 method: components::FiringMethod::AtPlayer(3, 1.0),
             })
-            .with(components::Cooldown::new(1.0))
+            .with(components::Cooldown::ready_at(1.0, rng.gen_range(24.5, 25.5)))
             .build();
     }
 
@@ -184,7 +184,7 @@ pub fn stage_two(world: &mut World, multiplayer: bool) {
                 speed: spectre_speed,
                 method: components::FiringMethod::AtPlayer(1, 0.0),
             })
-            .with(components::Cooldown::new(1.0))
+            .with(components::Cooldown::ready_at(1.0, rng.gen_range(start, start + 1.0)))
             .build();
     }
 

@@ -10,7 +10,7 @@ use crate::graphics::Image as GraphicsImage;
 const WIDTH: f32 = 480.0;
 const HEIGHT: f32 = 640.0;
 const PLAYER_SPEED: f32 = 250.0 / 60.0;
-const PLAYER_BULLET_SPEED: f32 = 500.0 / 60.0;
+const PLAYER_BULLET_SPEED: f32 = 1000.0 / 60.0;
 
 mod rendering;
 mod bullets;
@@ -34,16 +34,16 @@ impl<'a> System<'a> for MoveEntities {
                         pos.0.y -= *speed;
                     }
 
-                    *speed += 0.125;
+                    *speed += 0.0625;
                 },
                 Movement::FollowCurve(curve) => {
                     pos.0 = curve.step(pos.0);
                 },
-                Movement::FiringMove(speed, return_time, stop_y) => {
+                Movement::FiringMove { speed, return_time, stop_time } => {
                     if *return_time <= game_time.total_time {
                         pos.0.y -= *speed;
-                    } else {
-                        pos.0.y = min(pos.0.y + *speed, *stop_y);
+                    } else if *stop_time > game_time.total_time {
+                        pos.0.y += *speed;
                     }
                 }
             }

@@ -43,7 +43,7 @@ pub enum Movement {
     Linear(Vector2<f32>),
     Falling { speed: f32, down: bool },
     FollowCurve(Curve),
-    FiringMove(f32, f32, f32)
+    FiringMove { speed: f32, return_time: f32, stop_time: f32 }
 }
 
 #[derive(Component)]
@@ -92,6 +92,13 @@ impl Cooldown {
         Self {
             cooldown_time,
             last_fired: std::f32::MIN,
+        }
+    }
+
+    pub fn ready_at(cooldown_time: f32, ready_at: f32) -> Self {
+        Self {
+            cooldown_time,
+            last_fired: ready_at - cooldown_time
         }
     }
 
