@@ -1,7 +1,8 @@
 use specs::prelude::*;
 use cgmath::Vector2;
 use rand::Rng;
-use crate::{resources::*, components::*};
+use crate::{resources::*, components::*, graphics::Image as GraphicsImage};
+use super::is_touching;
 
 pub struct FireBullets;
 
@@ -101,15 +102,16 @@ impl<'a> System<'a> for ApplyCollisions {
     type SystemData = (
         Entities<'a>, Write<'a, DamageTracker>, Read<'a, GameTime>,
         WriteStorage<'a, Health>, WriteStorage<'a, Position>, WriteStorage<'a, Explosion>, WriteStorage<'a, Invulnerability>,
+        WriteStorage<'a, PowerOrb>, WriteStorage<'a, Movement>, WriteStorage<'a, Image>, WriteStorage<'a, Hitbox>, WriteStorage<'a, DieOffscreen>,
     );
 
-    fn run(&mut self, (entities, mut damage_tracker, time, mut health, mut pos, mut explosion, mut invul): Self::SystemData) {
+    fn run(&mut self, (entities, mut damage_tracker, time, mut health, mut pos, mut explosion, mut invul, mut orb, mut falling, mut images, mut hitbox, mut dieoffscreen): Self::SystemData) {
         let mut rng = rand::thread_rng();
 
         for mut damage in damage_tracker.0.drain(..) {
-            let player_triggered_invul = damage_entity(damage.friendly, &entities, &mut health, &mut invul, time.total_time);
+            let (player_triggered_invul, _) = damage_entity(damage.friendly, &entities, &mut health, &mut invul, time.total_time);
             if player_triggered_invul {
-                damage_entity(damage.enemy, &entities, &mut health, &mut invul, time.total_time);
+                let (_, enemy_dead) = damage_entity(damage.enemy, &entities, &mut health, &mut invul, time.total_time);
 
                 damage.position.x += rng.gen_range(-5.0, 5.0);
                 damage.position.y += rng.gen_range(-5.0, 5.0);
@@ -118,52 +120,38 @@ impl<'a> System<'a> for ApplyCollisions {
                     .with(Position(damage.position), &mut pos)
                     .with(Explosion(time.total_time), &mut explosion)
                     .build();
+
+                if enemy_dead && rng.gen_range(0.0, 1.0) > 0.6 {
+                    let (value, image) = if rng.gen_range(0.0, 1.0) > 0.9 { (5, GraphicsImage::BigOrb) } else { (1, GraphicsImage::Orb) };
+                    entities.build_entity()
+                        .with(Position(damage.position), &mut pos)
+                        .with(PowerOrb(value), &mut orb)
+                        .with(Movement::Falling { speed: 0.0, down: true }, &mut falling)
+                        .with(Image::from(image), &mut images)
+                        .with(Hitbox(Vector2::new(50.0, 50.0)), &mut hitbox)
+                        .with(DieOffscreen, &mut dieoffscreen)
+                        .build();
+                }
             }
         }
     }
 }
 
-fn damage_entity(entity: Entity, entities: &Entities, health: &mut WriteStorage<Health>, invul: &mut WriteStorage<Invulnerability>, time: f32) -> bool {
+fn damage_entity(entity: Entity, entities: &Entities, health: &mut WriteStorage<Health>, invul: &mut WriteStorage<Invulnerability>, time: f32) -> (bool, bool) {
+    let (mut triggered_invul, mut dead) = (false, false);
+    
     if let Some(health) = health.get_mut(entity) {
-        let invul = invul.get_mut(entity).map(|invul| invul.can_damage(time)).unwrap_or(true);
+        triggered_invul = invul.get_mut(entity).map(|invul| invul.can_damage(time)).unwrap_or(true);
 
-        if invul {
+        if triggered_invul {
             health.0 = health.0.saturating_sub(1);
 
             if health.0 == 0 {
+                dead = true;
                 entities.delete(entity).unwrap();
             }
         }
-
-        invul
-    } else {
-        false
-    }
-}
-
-fn is_touching(pos_a: Vector2<f32>, hit_a: Vector2<f32>, pos_b: Vector2<f32>, hit_b: Vector2<f32>) -> Option<Vector2<f32>> {
-    if hit_a == Vector2::new(0.0, 0.0) && hit_b == Vector2::new(0.0, 0.0) {
-        return None;
     }
 
-    let a_t_l = pos_a - hit_a / 2.0;
-    let a_b_r = pos_a + hit_a / 2.0;
-    
-    let b_t_l = pos_b - hit_b / 2.0;
-    let b_b_r = pos_b + hit_b / 2.0;
-    
-    let is_touching = !(
-        a_t_l.x > b_b_r.x  || a_b_r.x  < b_t_l.x ||
-        a_t_l.y  > b_b_r.y || a_b_r.y < b_t_l.y
-    );
-
-    if is_touching {
-        Some(if hit_a.x * hit_a.y > hit_b.x * hit_b.y {
-            pos_b
-        } else {
-            pos_a
-        })
-    } else {
-        None
-    }
+    (triggered_invul, dead)
 }

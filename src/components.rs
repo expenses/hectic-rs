@@ -41,7 +41,7 @@ pub struct Position(pub Vector2<f32>);
 #[derive(Component, Clone)]
 pub enum Movement {
     Linear(Vector2<f32>),
-    Falling(f32),
+    Falling { speed: f32, down: bool },
     FollowCurve(Curve),
     FiringMove(f32, f32, f32)
 }
@@ -158,6 +158,12 @@ pub struct Explosion(pub f32);
 
 #[derive(Component)]
 pub struct Invulnerability(f32);
+
+#[derive(Component)]
+pub struct PowerOrb(pub u32);
+
+#[derive(Component)]
+pub struct PowerBar(pub u32);
 
 impl Invulnerability {
     pub fn new() -> Self {

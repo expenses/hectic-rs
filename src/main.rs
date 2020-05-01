@@ -57,6 +57,8 @@ async fn run() {
     world.register::<components::Invulnerability>();
     world.register::<components::Text>();
     world.register::<components::TargetPlayer>();
+    world.register::<components::PowerOrb>();
+    world.register::<components::PowerBar>();
 
     world.insert(resources::ControlsState::load());
     world.insert(buffer_renderer);
@@ -70,6 +72,7 @@ async fn run() {
         .with(systems::TogglePaused, "TogglePaused", &[])
         .with(systems::KillOffscreen, "KillOffscreen", &[])
         .with(systems::MoveEntities, "MoveEntities", &[])
+        .with(systems::CollectOrbs, "CollectOrbs", &[])
         .with(systems::Control, "Control", &[])
         .with(systems::SetPlayerPositions, "SetPlayerPositions", &[])
         .with(systems::FireBullets, "FireBullets", &[])

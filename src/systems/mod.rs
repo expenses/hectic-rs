@@ -27,9 +27,14 @@ impl<'a> System<'a> for MoveEntities {
         for (mut pos, mov, _) in (&mut pos, &mut mov, !&frozen).join() {
             match mov {
                 Movement::Linear(vector) => pos.0 += *vector,
-                Movement::Falling(speed) => {
-                    pos.0.y -= *speed;
-                    *speed += 0.15;
+                Movement::Falling { speed, down } => {
+                    if *down {
+                        pos.0.y += *speed;
+                    } else {
+                        pos.0.y -= *speed;
+                    }
+
+                    *speed += 0.125;
                 },
                 Movement::FollowCurve(curve) => {
                     pos.0 = curve.step(pos.0);
@@ -273,4 +278,49 @@ impl<'a> System<'a> for AddOnscreen {
 fn is_onscreen(pos: &Position, image: Image) -> bool {
     let size = image.size() / 2.0;
     !(pos.0.y + size.y <= 0.0 || pos.0.y - size.y >= HEIGHT || pos.0.x + size.x <= 0.0 || pos.0.x - size.x >= WIDTH)
+}
+
+
+pub struct CollectOrbs;
+
+impl<'a> System<'a> for CollectOrbs {
+    type SystemData = (Entities<'a>, ReadStorage<'a, PowerOrb>, ReadStorage<'a, Position>, ReadStorage<'a, Hitbox>, WriteStorage<'a, PowerBar>);
+
+    fn run(&mut self, (entities, orb, position, hitbox, mut power_bar): Self::SystemData) {
+        for (player_pos, player_hit, power_bar) in (&position, &hitbox, &mut power_bar).join() {
+            for (orb_entity, orb, orb_pos, orb_hit) in (&entities, &orb, &position, &hitbox).join() {
+                if is_touching(player_pos.0, player_hit.0, orb_pos.0, orb_hit.0).is_some() {
+                    entities.delete(orb_entity).unwrap();
+                    power_bar.0 += orb.0;
+                }
+            }
+        }
+    }
+}
+
+fn is_touching(pos_a: Vector2<f32>, hit_a: Vector2<f32>, pos_b: Vector2<f32>, hit_b: Vector2<f32>) -> Option<Vector2<f32>> {
+    if hit_a == Vector2::new(0.0, 0.0) && hit_b == Vector2::new(0.0, 0.0) {
+        return None;
+    }
+
+    let a_t_l = pos_a - hit_a / 2.0;
+    let a_b_r = pos_a + hit_a / 2.0;
+    
+    let b_t_l = pos_b - hit_b / 2.0;
+    let b_b_r = pos_b + hit_b / 2.0;
+    
+    let is_touching = !(
+        a_t_l.x > b_b_r.x  || a_b_r.x  < b_t_l.x ||
+        a_t_l.y  > b_b_r.y || a_b_r.y < b_t_l.y
+    );
+
+    if is_touching {
+        Some(if hit_a.x * hit_a.y > hit_b.x * hit_b.y {
+            pos_b
+        } else {
+            pos_a
+        })
+    } else {
+        None
+    }
 }

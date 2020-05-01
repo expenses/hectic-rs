@@ -138,6 +138,7 @@ fn create_player(world: &mut World, player: components::Player, position: Vector
             .with(components::Friendly)
             .with(components::Health(3))
             .with(components::Invulnerability::new())
+            .with(components::PowerBar(0))
             .build();
 }
 
@@ -145,7 +146,7 @@ fn create_title(world: &mut World, text: &'static str) {
     world.create_entity()
         .with(components::Text::title(text))
         .with(components::Position(Vector2::new(WIDTH / 2.0, 40.0)))
-        .with(components::Movement::Falling(0.0))
+        .with(components::Movement::Falling { speed: 0.0, down: false })
         .build();
 }
 
