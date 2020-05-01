@@ -118,17 +118,6 @@ impl Cooldown {
     }
 }
 
-impl FiresBullets {
-    pub fn bullet_to_be_spawned(&self, position: Vector2<f32>, rotation: f32) -> crate::resources::BulletToBeSpawned {
-        crate::resources::BulletToBeSpawned {
-            pos: position,
-            image: self.image,
-            velocity: Vector2::new(rotation.cos(), rotation.sin()) * self.speed,
-            enemy: true,
-        }
-    }
-}
-
 pub enum FiringMethod {
     AtPlayer(u16, f32)
 }

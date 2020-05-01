@@ -149,11 +149,11 @@ pub struct Control;
 
 impl<'a> System<'a> for Control {
     type SystemData = (
-        Entities<'a>, Read<'a, ControlsState>, Read<'a, GameTime>, Read<'a, LazyUpdate>, Write<'a, BulletSpawner>,
+        Entities<'a>, Read<'a, ControlsState>, Read<'a, GameTime>, Read<'a, LazyUpdate>,
         ReadStorage<'a, Player>, WriteStorage<'a, Position>, WriteStorage<'a, Cooldown>, WriteStorage<'a, PowerBar>,
     );
 
-    fn run(&mut self, (entities, ctrl_state, time, updater, mut bullet_spawner, player, mut position, mut cooldown, mut bar): Self::SystemData) {
+    fn run(&mut self, (entities, ctrl_state, time, updater, player, mut position, mut cooldown, mut bar): Self::SystemData) {
         for (player, mut pos, cooldown, bar) in (&player, &mut position, &mut cooldown, &mut bar).join() {
             let player_ctrl_state = ctrl_state.get(*player);
 
@@ -175,12 +175,7 @@ impl<'a> System<'a> for Control {
 
             if player_ctrl_state.fire.pressed && cooldown.is_ready(time.total_time) {
                 for direction in &[-0.2_f32, -0.1, 0.0, 0.1, 0.2] {
-                    bullet_spawner.0.push(BulletToBeSpawned {
-                        pos: pos.0,
-                        image: Image::from(GraphicsImage::PlayerBullet),
-                        velocity: Vector2::new(direction.sin(), -direction.cos()) * PLAYER_BULLET_SPEED,
-                        enemy: false,
-                    });
+                    build_bullet(&entities, &updater, pos.0, Image::from(GraphicsImage::PlayerBullet), Vector2::new(direction.sin(), -direction.cos()) * PLAYER_BULLET_SPEED, false);
                 }
             }
 
@@ -330,4 +325,22 @@ fn is_touching(pos_a: Vector2<f32>, hit_a: Vector2<f32>, pos_b: Vector2<f32>, hi
     } else {
         None
     }
+}
+
+fn build_bullet(entities: &Entities, updater: &LazyUpdate, pos: Vector2<f32>, image: Image, velocity: Vector2<f32>, enemy: bool) {
+    if enemy {
+        updater.create_entity(entities)
+            .with(Enemy)
+            .with(CollidesWithBomb)
+    } else {
+        updater.create_entity(entities)
+            .with(Friendly)
+    }
+        .with(Position(pos))
+        .with(image)
+        .with(Movement::Linear(velocity))
+        .with(DieOffscreen)
+        .with(Hitbox(Vector2::new(0.0, 0.0)))
+        .with(Health(1))
+        .build();
 }

@@ -65,7 +65,6 @@ async fn run() {
     world.insert(resources::ControlsState::load());
     world.insert(buffer_renderer);
     world.insert(resources::GameTime::default());
-    world.insert(resources::BulletSpawner::default());
     world.insert(resources::DamageTracker::default());
     world.insert(resources::PlayerPositions::default());
     world.insert(resources::Mode::default());
@@ -79,7 +78,6 @@ async fn run() {
         .with(systems::Control, "Control", &[])
         .with(systems::SetPlayerPositions, "SetPlayerPositions", &[])
         .with(systems::FireBullets, "FireBullets", &[])
-        .with(systems::SpawnBullets, "SpawnBullets", &[])
         .with(systems::RepeatBackgroundLayers, "RepeatBackgroundLayers", &[])
         .with(systems::TickTime, "TickTime", &[])
         .with(systems::StartTowardsPlayer, "StartTowardsPlayer", &["TickTime"])
@@ -87,7 +85,7 @@ async fn run() {
         .with(systems::Collisions, "Collisions", &[])
         .with(systems::ApplyCollisions, "ApplyCollisions", &["Collisions"])
         .with(systems::ExplosionImages, "ExplosionImages", &["ApplyCollisions"])
-        .with(systems::RenderSprite, "RenderSprite", &["MoveEntities", "Control", "SpawnBullets", "ExplosionImages"])
+        .with(systems::RenderSprite, "RenderSprite", &["MoveEntities", "Control", "ExplosionImages"])
         .with(systems::RenderText, "RenderText", &["RenderSprite"])
         .with(systems::RenderBombs, "RenderBombs", &["RenderSprite"])
         .with(systems::RenderHitboxes, "RenderHitboxes", &["RenderSprite"])

@@ -2,17 +2,17 @@ use specs::prelude::*;
 use cgmath::{Vector2, MetricSpace, InnerSpace};
 use rand::Rng;
 use crate::{WIDTH, HEIGHT, resources::*, components::*, graphics::Image as GraphicsImage};
-use super::is_touching;
+use super::{is_touching, build_bullet};
 
 pub struct FireBullets;
 
 impl<'a> System<'a> for FireBullets {
     type SystemData = (
-        ReadStorage<'a, Position>, ReadStorage<'a, FiresBullets>, WriteStorage<'a, Cooldown>, ReadStorage<'a, BeenOnscreen>,
-        Write<'a, BulletSpawner>, Read<'a, GameTime>, Read<'a, PlayerPositions>,
+        Entities<'a>, ReadStorage<'a, Position>, ReadStorage<'a, FiresBullets>, WriteStorage<'a, Cooldown>, ReadStorage<'a, BeenOnscreen>,
+        Read<'a, LazyUpdate>, Read<'a, GameTime>, Read<'a, PlayerPositions>,
     );
 
-    fn run(&mut self, (pos, fires, mut cooldown, onscreen, mut spawner, time, player_positions): Self::SystemData) {
+    fn run(&mut self, (entities, pos, fires, mut cooldown, onscreen, updater, time, player_positions): Self::SystemData) {
         let mut rng = rand::thread_rng();
 
         for (pos, fires, cooldown, _) in (&pos, &fires, &mut cooldown, &onscreen).join() {
@@ -28,42 +28,12 @@ impl<'a> System<'a> for FireBullets {
                             let mid_point = (total - 1) as f32 / 2.0;
                             let rotation_difference = spread * (mid_point - i as f32) / total as f32;
 
-                            spawner.0.push(fires.bullet_to_be_spawned(pos.0, rotation + rotation_difference));
+                            let rotation = rotation + rotation_difference;
+                            build_bullet(&entities, &updater, pos.0, fires.image, Vector2::new(rotation.cos() * fires.speed, rotation.sin() * fires.speed), true);
                         }
                     }
                 }
             }
-        }
-    }
-}
-
-pub struct SpawnBullets;
-
-impl<'a> System<'a> for SpawnBullets {
-    type SystemData = (
-        Entities<'a>, Write<'a, BulletSpawner>,
-        WriteStorage<'a, Position>, WriteStorage<'a, Image>, WriteStorage<'a, Movement>,
-        WriteStorage<'a, DieOffscreen>, WriteStorage<'a, Friendly>, WriteStorage<'a, Enemy>,
-        WriteStorage<'a, Hitbox>, WriteStorage<'a, Health>, WriteStorage<'a, CollidesWithBomb>,
-    );
-
-    fn run(&mut self, (entities, mut spawner, mut pos, mut image, mut mov, mut dieoffscreen, mut friendly, mut enemy, mut hitbox, mut health, mut collides): Self::SystemData) {
-        for bullet in spawner.0.drain(..) {
-            if bullet.enemy {
-                entities.build_entity()
-                    .with(Enemy, &mut enemy)
-                    .with(CollidesWithBomb, &mut collides)
-            } else {
-                entities.build_entity()
-                    .with(Friendly, &mut friendly)
-            }
-                .with(Position(bullet.pos), &mut pos)
-                .with(bullet.image, &mut image)
-                .with(Movement::Linear(bullet.velocity), &mut mov)
-                .with(DieOffscreen, &mut dieoffscreen)
-                .with(Hitbox(Vector2::new(0.0, 0.0)), &mut hitbox)
-                .with(Health(1), &mut health)
-                .build();
         }
     }
 }

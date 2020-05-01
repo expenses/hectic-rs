@@ -244,16 +244,6 @@ impl Default for GameTime {
 }
 
 #[derive(Default)]
-pub struct BulletSpawner(pub Vec<BulletToBeSpawned>);
-
-pub struct BulletToBeSpawned {
-    pub pos: Vector2<f32>,
-    pub image: crate::components::Image,
-    pub velocity: Vector2<f32>,
-    pub enemy: bool,
-}
-
-#[derive(Default)]
 pub struct DamageTracker(pub Vec<Damage>);
 
 pub struct Damage {
