@@ -33,7 +33,7 @@ pub enum Player {
 }
 
 #[derive(Component)]
-pub struct BackgroundLayer;
+pub struct BackgroundLayer { pub depth: u32 }
 
 #[derive(Component)]
 pub struct Position(pub Vector2<f32>);

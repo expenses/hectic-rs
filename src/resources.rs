@@ -8,40 +8,44 @@ use serde::{Serialize, Deserialize};
 #[derive(Clone, Copy, Debug)]
 pub enum Mode {
     Playing,
-    Paused(usize),
-    MainMenu(usize),
-    Controls(usize),
+    Paused { selected: usize },
+    MainMenu { selected: usize },
+    Controls { selected: usize },
     Quit,
-    Stages(usize),
-    StageOne,
-    StageTwo,
+    Stages { selected: usize, multiplayer: bool },
+    StageOne { multiplayer: bool },
+    StageTwo { multiplayer: bool },
 }
 
 impl Default for Mode {
     fn default() -> Self {
-        Mode::MainMenu(0)
+        Mode::MainMenu { selected: 0 }
     }
 }
 
 impl Mode {
     pub fn as_menu(&mut self, ctrl_state: &ControlsState) -> Option<Menu> {
         match self {
-            Mode::Paused(selected) => Some(Menu {
+            Mode::Paused { selected } => Some(Menu {
                 title: "Paused",
                 items: vec![Item::new("Resume"), Item::new("Main Menu")],
                 selected,
             }),
-            Mode::MainMenu(selected) => Some(Menu {
+            Mode::MainMenu { selected } => Some(Menu {
                 title: "Hectic",
                 items: vec![Item::new("Play"), Item::new("Controls"), Item::new("Quit")],
                 selected,
             }),
-            Mode::Stages(selected) => Some(Menu {
+            Mode::Stages { selected, multiplayer } => Some(Menu {
                 title: "Stages",
-                items: vec![Item::new("Stage One"), Item::new("Stage Two"), Item::new("Back")],
+                items: vec![
+                    Item::new("Stage One"), Item::new("Stage Two"),
+                    Item::owned(format!("Mode: {}", if *multiplayer { "Multiplayer" } else { "Singleplayer" })),
+                    Item::new("Back")
+                ],
                 selected,
             }),
-            Mode::Controls(selected) => Some(Menu {
+            Mode::Controls { selected } => Some(Menu {
                 title: "Controls",
                 items: ctrl_state.as_items(),
                 selected,

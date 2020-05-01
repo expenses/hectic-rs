@@ -4,12 +4,18 @@ use components::Curve;
 use cgmath::Vector2;
 use rand::Rng;
 
-pub fn stage_one(world: &mut World) {
-    create_background(world, graphics::Image::NightSky, ZERO, ZERO);
-    create_background(world, graphics::Image::Clouds, ZERO, Vector2::new(0.0, 1.0));
-    create_background(world, graphics::Image::Clouds, Vector2::new(0.0, 1920.0), Vector2::new(0.0, 1.0));
+fn clear_world(world: &mut World) {
+    world.delete_all();
+    world.fetch_mut::<crate::resources::GameTime>().total_time = 0.0;
+}
+
+pub fn stage_one(world: &mut World, multiplayer: bool) {
+    clear_world(world);
+    create_background(world, graphics::Image::NightSky, ZERO, ZERO, 0);
+    create_background(world, graphics::Image::Clouds, ZERO, Vector2::new(0.0, 1.0), 1);
+    create_background(world, graphics::Image::Clouds, Vector2::new(0.0, 1920.0), Vector2::new(0.0, 1.0), 1);
     create_title(world, "Stage\nOne");
-    create_players(world, false);
+    create_players(world, multiplayer);
 
     for start in float_iter(10.0, 60.0, 0.25) {
         bat_with_curve(world, Curve::horizontal(100.0, 300.0, true, 2.5), start);
@@ -120,25 +126,26 @@ fn create_title(world: &mut World, text: &'static str) {
         .build();
 }
 
-fn create_background(world: &mut World, image: graphics::Image, position: Vector2<f32>, movement: Vector2<f32>) {
+fn create_background(world: &mut World, image: graphics::Image, position: Vector2<f32>, movement: Vector2<f32>, depth: u32) {
     world.create_entity()
         .with(components::Position(MIDDLE + position))
         .with(components::Image::from(image))
         .with(components::Movement::Linear(movement))
-        .with(components::BackgroundLayer)
+        .with(components::BackgroundLayer { depth })
         .build();
 }
 
-pub fn stage_two(world: &mut World) {
+pub fn stage_two(world: &mut World, multiplayer: bool) {
     let mut rng = rand::thread_rng();
 
-    create_background(world, graphics::Image::Graveyard, ZERO, Vector2::new(0.0, 0.5));
-    create_background(world, graphics::Image::Graveyard, Vector2::new(0.0, 1440.0), Vector2::new(0.0, 0.5));
-    create_background(world, graphics::Image::Fog, ZERO, Vector2::new(0.0, 0.5));
-    create_background(world, graphics::Image::Fog, Vector2::new(0.0, 1920.0), Vector2::new(0.0, 0.5));
-    create_background(world, graphics::Image::Darkness, ZERO, ZERO);
+    clear_world(world);
+    create_background(world, graphics::Image::Graveyard, ZERO, Vector2::new(0.0, 0.5), 0);
+    create_background(world, graphics::Image::Graveyard, Vector2::new(0.0, 1440.0), Vector2::new(0.0, 0.5), 0);
+    create_background(world, graphics::Image::Fog, ZERO, Vector2::new(0.0, 0.5), 1);
+    create_background(world, graphics::Image::Fog, Vector2::new(0.0, 1920.0), Vector2::new(0.0, 0.5), 1);
+    create_background(world, graphics::Image::Darkness, ZERO, ZERO, 2);
     create_title(world, "Stage\nTwo");
-    create_players(world, false);
+    create_players(world, multiplayer);
 
     let spectre_speed = 10.0 / 3.0;
 

@@ -137,16 +137,16 @@ async fn run() {
         Event::MainEventsCleared => {
             let mode: resources::Mode = *world.fetch();
             match mode {
-                resources::Mode::MainMenu(_) | resources::Mode::Stages(_) | resources::Mode::Controls(_) => menu_dispatcher.dispatch(&world),
+                resources::Mode::MainMenu { .. } | resources::Mode::Stages { .. } | resources::Mode::Controls { .. } => menu_dispatcher.dispatch(&world),
                 resources::Mode::Playing => playing_dispatcher.dispatch(&world),
-                resources::Mode::Paused(_) => paused_dispatcher.dispatch(&world),
+                resources::Mode::Paused { .. } => paused_dispatcher.dispatch(&world),
                 resources::Mode::Quit => *control_flow = ControlFlow::Exit,
-                resources::Mode::StageOne => {
-                    stages::stage_one(&mut world);
+                resources::Mode::StageOne { multiplayer } => {
+                    stages::stage_one(&mut world, multiplayer);
                     *world.fetch_mut() = resources::Mode::Playing;
                 },
-                resources::Mode::StageTwo => {
-                    stages::stage_two(&mut world);
+                resources::Mode::StageTwo { multiplayer } => {
+                    stages::stage_two(&mut world, multiplayer);
                     *world.fetch_mut() = resources::Mode::Playing;
                 }
             }

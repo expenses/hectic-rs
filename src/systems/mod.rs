@@ -70,8 +70,8 @@ impl<'a> System<'a> for TogglePaused {
     fn run(&mut self, (mut ctrl_state, mut mode): Self::SystemData) {
         if ctrl_state.pause.pressed {
             *mode = match *mode {
-                Mode::Playing => Mode::Paused(0),
-                Mode::Paused(_) => Mode::Playing,
+                Mode::Playing => Mode::Paused { selected: 0 },
+                Mode::Paused { .. } => Mode::Playing,
                 _ => *mode
             };
             ctrl_state.pause.pressed = false;
@@ -102,32 +102,33 @@ impl<'a> System<'a> for ControlMenu {
 
             if player_ctrl_state.fire.pressed {
                 match *mode {
-                    Mode::Paused(selected) => {
+                    Mode::Paused { selected } => {
                         *mode = match selected {
                             0 => Mode::Playing,
-                            1 => Mode::MainMenu(0),
+                            1 => Mode::MainMenu { selected: 0 },
                             _ => unreachable!()
                         }
                     },
-                    Mode::MainMenu(selected) => {
+                    Mode::MainMenu { selected } => {
                         *mode = match selected {
-                            0 => Mode::Stages(0),
-                            1 => Mode::Controls(0),
+                            0 => Mode::Stages { selected: 0, multiplayer: false },
+                            1 => Mode::Controls { selected: 0 },
                             2 => Mode::Quit,
                             _ => unreachable!()
                         };
                     },
-                    Mode::Stages(selected) => {
+                    Mode::Stages { selected, multiplayer } => {
                         *mode = match selected {
-                            0 => Mode::StageOne,
-                            1 => Mode::StageTwo,
-                            2 => Mode::MainMenu(0),
+                            0 => Mode::StageOne { multiplayer },
+                            1 => Mode::StageTwo { multiplayer },
+                            2 => Mode::Stages { selected, multiplayer: !multiplayer },
+                            3 => Mode::MainMenu { selected: 0 },
                             _ => unreachable!()
                         }
                     },
-                    Mode::Controls(selected) => {
+                    Mode::Controls { selected } => {
                         if selected == last_item {
-                            *mode = Mode::MainMenu(1);
+                            *mode = Mode::MainMenu { selected: 1 };
                         }
                     }
                     _ => {}
