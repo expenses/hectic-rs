@@ -263,6 +263,10 @@ impl Renderer {
             });
 
             if let Some((vertices, indices)) = &buffers {
+                let offset = renderer.centering_offset() / 2.0;
+                let dimensions = renderer.dimensions();
+                rpass.set_scissor_rect(offset.x as u32, offset.y as u32, dimensions.x as u32, dimensions.y as u32);
+
                 rpass.set_pipeline(&self.pipeline);
                 rpass.set_bind_group(0, &self.bind_group, &[]);
 
@@ -330,8 +334,12 @@ impl BufferRenderer {
             .min(self.window_size.x / crate::WIDTH)
     }
 
-    fn centering_x_offset(&self) -> f32 {
-        self.window_size.x - crate::WIDTH * self.scale_factor()
+    fn centering_offset(&self) -> Vector2<f32> {
+        self.window_size - self.dimensions()
+    }
+
+    fn dimensions(&self) -> Vector2<f32> {
+        crate::DIMENSIONS * self.scale_factor()
     }
 
     pub fn render_sprite(&mut self, sprite: Image, mut pos: Vector2<f32>, overlay: [f32; 4]) {
@@ -339,7 +347,7 @@ impl BufferRenderer {
 
         pos = pos * 2.0 * self.scale_factor();
         pos = pos - self.window_size;
-        pos.x += self.centering_x_offset();
+        pos += self.centering_offset();
         pos = pos.div_element_wise(self.window_size);
 
         let mut dimensions = (sprite.size() * 2.0)
@@ -358,7 +366,7 @@ impl BufferRenderer {
 
         pos = pos * 2.0 * self.scale_factor();
         pos = pos - self.window_size;
-        pos.x += self.centering_x_offset();
+        pos += self.centering_offset();
         pos = pos.div_element_wise(self.window_size);
 
         let mut dimensions = size
@@ -391,7 +399,7 @@ impl BufferRenderer {
     }
 
     pub fn render_text(&mut self, text: &Text, mut pos: Vector2<f32>, color: [f32; 4]) {
-        pos.x += self.centering_x_offset() / self.scale_factor() / 2.0;
+        pos += self.centering_offset() / self.scale_factor() / 2.0;
 
         let scale = match text.font {
             0 => 160.0,
