@@ -17,25 +17,25 @@ impl<'a> System<'a> for RepeatBackgroundLayers {
     }
 }
 
-pub struct RenderSprite;
+#[derive(Default)]
+pub struct RenderSprite { sorted_bgs: Vec<(Vector2<f32>, Image, u32)> }
 
 impl<'a> System<'a> for RenderSprite {
     type SystemData = (
-        Entities<'a>,
         ReadStorage<'a, Position>, ReadStorage<'a, Image>, ReadStorage<'a, Invulnerability>, ReadStorage<'a, FrozenUntil>, ReadStorage<'a, BackgroundLayer>,
         Read<'a, GameTime>, Write<'a, Renderer>
     );
 
-    fn run(&mut self, (entities, pos, image, invul, frozen, bg, time, mut renderer): Self::SystemData) {
-        let mut background_positions: Vec<_> = (&pos, &image, &bg).join().collect();
-        background_positions.sort_unstable_by_key(|(_, _, bg)| bg.depth);
+    fn run(&mut self, (pos, image, invul, frozen, bg, time, mut renderer): Self::SystemData) {
+        self.sorted_bgs.extend((&pos, &image, &bg).join().map(|(pos, image, bg)| (pos.0, *image, bg.depth)));
+        self.sorted_bgs.sort_unstable_by_key(|&(_, _, depth)| depth);
 
-        for (pos, image, _) in background_positions.drain(..) {
-            renderer.render_sprite(*image, pos.0, [0.0; 4]);
+        for (pos, image, _) in self.sorted_bgs.drain(..) {
+            renderer.render_sprite(image, pos, [0.0; 4]);
         }
 
-        for (entity, pos, image, _, _) in (&entities, &pos, &image, !&frozen, !&bg).join() {
-            let overlay = invul.get(entity)
+        for (pos, image, invul, _, _) in (&pos, &image, invul.maybe(), !&frozen, !&bg).join() {
+            let overlay = invul
                 .filter(|invul| invul.is_invul(time.total_time))
                 .map(|_| [1.0, 1.0, 1.0, 0.2])
                 .unwrap_or([0.0; 4]);

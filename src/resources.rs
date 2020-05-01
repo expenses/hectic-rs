@@ -244,15 +244,6 @@ impl Default for GameTime {
 }
 
 #[derive(Default)]
-pub struct DamageTracker(pub Vec<Damage>);
-
-pub struct Damage {
-    pub friendly: specs::Entity,
-    pub enemy: specs::Entity,
-    pub position: Vector2<f32>,
-}
-
-#[derive(Default)]
 pub struct PlayerPositions(pub Vec<Vector2<f32>>);
 
 impl PlayerPositions {

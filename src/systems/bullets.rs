@@ -42,65 +42,45 @@ pub struct Collisions;
 
 impl<'a> System<'a> for Collisions {
     type SystemData = (
-        Entities<'a>,
-        ReadStorage<'a, Position>, ReadStorage<'a, Friendly>, ReadStorage<'a, Enemy>, ReadStorage<'a, Hitbox>,
-        ReadStorage<'a, FrozenUntil>,
-        Write<'a, DamageTracker>,
+        Entities<'a>, Read<'a, LazyUpdate>, Read<'a, GameTime>,
+        ReadStorage<'a, Position>, ReadStorage<'a, Friendly>, ReadStorage<'a, Enemy>, ReadStorage<'a, Hitbox>, ReadStorage<'a, FrozenUntil>,
+        WriteStorage<'a, Health>, WriteStorage<'a, Invulnerability>,
     );
 
-    fn run(&mut self, (entities, pos, friendly, enemy, hitbox, frozen, mut damage_tracker): Self::SystemData) {
+    fn run(&mut self, (entities, updater, time, pos, friendly, enemy, hitbox, frozen, mut health, mut invul): Self::SystemData) {
+        let mut rng = rand::thread_rng();
+        
         (&entities, &pos, &hitbox, &friendly).join()
             .flat_map(|friendly| {
                 (&entities, &pos, &hitbox, !&frozen, &enemy).join()
                     .map(move |enemy| (friendly, enemy))
             })
             .for_each(|((f_entity, f_pos, f_hitbox, _), (e_entity, e_pos, e_hitbox, _, _))| {
-                if let Some(hit_pos) = is_touching(f_pos.0, f_hitbox.0, e_pos.0, e_hitbox.0) {
-                    damage_tracker.0.push(Damage {
-                        friendly: f_entity,
-                        enemy: e_entity,
-                        position: hit_pos,
-                    });
+                if let Some(mut hit_pos) = is_touching(f_pos.0, f_hitbox.0, e_pos.0, e_hitbox.0) {
+
+                    let (player_triggered_invul, _) = damage_entity(f_entity, &entities, &mut health, &mut invul, time.total_time);
+                    if player_triggered_invul {
+                        let (_, enemy_dead) = damage_entity(e_entity, &entities, &mut health, &mut invul, time.total_time);
+
+                        hit_pos.x += rng.gen_range(-5.0, 5.0);
+                        hit_pos.y += rng.gen_range(-5.0, 5.0);
+            
+                        build_explosion(&updater, &entities, hit_pos, time.total_time);
+
+                        if enemy_dead && rng.gen_range(0.0, 1.0) > 0.6 {
+                            let (value, image) = if rng.gen_range(0.0, 1.0) > 0.9 { (5, GraphicsImage::BigOrb) } else { (1, GraphicsImage::Orb) };
+                            updater.create_entity(&entities)
+                                .with(Position(hit_pos))
+                                .with(PowerOrb(value))
+                                .with(Movement::Falling { speed: 0.0, down: true })
+                                .with(Image::from(image))
+                                .with(Hitbox(Vector2::new(50.0, 50.0)))
+                                .with(DieOffscreen)
+                                .build();
+                        }
+                    }
                 }
             });
-    }
-}
-
-pub struct ApplyCollisions;
-
-impl<'a> System<'a> for ApplyCollisions {
-    type SystemData = (
-        Entities<'a>, Write<'a, DamageTracker>, Read<'a, LazyUpdate>, Read<'a, GameTime>,
-        WriteStorage<'a, Health>, WriteStorage<'a, Position>, WriteStorage<'a, Invulnerability>,
-        WriteStorage<'a, PowerOrb>, WriteStorage<'a, Movement>, WriteStorage<'a, Image>, WriteStorage<'a, Hitbox>, WriteStorage<'a, DieOffscreen>,
-    );
-
-    fn run(&mut self, (entities, mut damage_tracker, updater, time, mut health, mut pos, mut invul, mut orb, mut falling, mut images, mut hitbox, mut dieoffscreen): Self::SystemData) {
-        let mut rng = rand::thread_rng();
-
-        for mut damage in damage_tracker.0.drain(..) {
-            let (player_triggered_invul, _) = damage_entity(damage.friendly, &entities, &mut health, &mut invul, time.total_time);
-            if player_triggered_invul {
-                let (_, enemy_dead) = damage_entity(damage.enemy, &entities, &mut health, &mut invul, time.total_time);
-
-                damage.position.x += rng.gen_range(-5.0, 5.0);
-                damage.position.y += rng.gen_range(-5.0, 5.0);
-    
-                build_explosion(&updater, &entities, damage.position, time.total_time);
-
-                if enemy_dead && rng.gen_range(0.0, 1.0) > 0.6 {
-                    let (value, image) = if rng.gen_range(0.0, 1.0) > 0.9 { (5, GraphicsImage::BigOrb) } else { (1, GraphicsImage::Orb) };
-                    entities.build_entity()
-                        .with(Position(damage.position), &mut pos)
-                        .with(PowerOrb(value), &mut orb)
-                        .with(Movement::Falling { speed: 0.0, down: true }, &mut falling)
-                        .with(Image::from(image), &mut images)
-                        .with(Hitbox(Vector2::new(50.0, 50.0)), &mut hitbox)
-                        .with(DieOffscreen, &mut dieoffscreen)
-                        .build();
-                }
-            }
-        }
     }
 }
 

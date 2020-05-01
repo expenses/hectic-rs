@@ -65,11 +65,11 @@ async fn run() {
     world.insert(resources::ControlsState::load());
     world.insert(buffer_renderer);
     world.insert(resources::GameTime::default());
-    world.insert(resources::DamageTracker::default());
     world.insert(resources::PlayerPositions::default());
     world.insert(resources::Mode::default());
 
     let db = DispatcherBuilder::new()
+        .with(systems::ExplosionImages, "ExplosionImages", &[])
         .with(systems::TogglePaused, "TogglePaused", &[])
         .with(systems::KillOffscreen, "KillOffscreen", &[])
         .with(systems::ExpandBombs, "ExpandCircles", &[])
@@ -83,9 +83,7 @@ async fn run() {
         .with(systems::StartTowardsPlayer, "StartTowardsPlayer", &["TickTime"])
         .with(systems::AddOnscreen, "AddOnscreen", &[])
         .with(systems::Collisions, "Collisions", &[])
-        .with(systems::ApplyCollisions, "ApplyCollisions", &["Collisions"])
-        .with(systems::ExplosionImages, "ExplosionImages", &["ApplyCollisions"])
-        .with(systems::RenderSprite, "RenderSprite", &["MoveEntities", "Control", "ExplosionImages"])
+        .with(systems::RenderSprite::default(), "RenderSprite", &["MoveEntities", "Control", "ExplosionImages"])
         .with(systems::RenderText, "RenderText", &["RenderSprite"])
         .with(systems::RenderBombs, "RenderBombs", &["RenderSprite"])
         .with(systems::RenderHitboxes, "RenderHitboxes", &["RenderSprite"])
@@ -98,7 +96,7 @@ async fn run() {
     let mut paused_dispatcher = DispatcherBuilder::new()
         .with(systems::TogglePaused, "TogglePaused", &[])
         .with(systems::ControlMenu, "ControlMenu", &[])
-        .with(systems::RenderSprite, "RenderSprite", &[])
+        .with(systems::RenderSprite::default(), "RenderSprite", &[])
         .with(systems::RenderText, "RenderText", &["RenderSprite"])
         .with(systems::RenderBombs, "RenderBombs", &["RenderSprite"])
         .with(systems::RenderHitboxes, "RenderHitboxes", &["RenderSprite"])
