@@ -266,6 +266,7 @@ impl Renderer {
             });
 
             if let Some((vertices, indices)) = &buffers {
+                #[cfg(feature = "native")]
                 rpass.set_scissor_rect(offset.x as u32, offset.y as u32, dimensions.x as u32, dimensions.y as u32);
 
                 rpass.set_pipeline(&self.pipeline);
@@ -291,12 +292,21 @@ impl Renderer {
             ]
         }
 
+        #[cfg(feature = "native")]
         self.glyph_brush.draw_queued_with_transform_and_scissoring(
             &self.device,
             &mut encoder,
             &output.view,
             orthographic_projection(renderer.window_size.x, renderer.window_size.y),
             wgpu_glyph::Region { x: offset.x as u32, y: offset.y as u32, width: dimensions.x as u32, height: dimensions.y as u32 },
+        ).unwrap();
+        #[cfg(feature = "wasm")]
+        self.glyph_brush.draw_queued(
+            &self.device,
+            &mut encoder,
+            &output.view,
+            self.swap_chain_desc.width,
+            self.swap_chain_desc.height,
         ).unwrap();
 
         self.queue.submit(Some(encoder.finish()));
