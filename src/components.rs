@@ -56,6 +56,12 @@ pub struct BeenOnscreen;
 pub struct FrozenUntil(pub f32);
 
 #[derive(Component)]
+pub struct Circle { pub radius: f32 } 
+
+#[derive(Component)]
+pub struct CollidesWithBomb;
+
+#[derive(Component)]
 pub struct Text {
     pub text: String,
     pub font: usize,
@@ -171,6 +177,27 @@ pub struct PowerOrb(pub u32);
 
 #[derive(Component)]
 pub struct PowerBar(pub u32);
+
+impl PowerBar {
+    pub const FULL: u32 = 35;
+
+    pub fn add(&mut self, value: u32) {
+        self.0 = (self.0 + value).min(Self::FULL)
+    }
+
+    pub fn perc(&self) -> f32 {
+        self.0 as f32 / Self::FULL as f32
+    }
+
+    pub fn empty(&mut self) -> bool {
+        if self.0 == Self::FULL {
+            self.0 = 0;
+            true
+        } else {
+            false
+        }
+    }
+}
 
 impl Invulnerability {
     pub fn new() -> Self {

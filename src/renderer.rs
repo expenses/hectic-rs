@@ -363,7 +363,11 @@ impl BufferRenderer {
         crate::DIMENSIONS * self.scale_factor()
     }
 
-    pub fn render_sprite(&mut self, sprite: Image, mut pos: Vector2<f32>, overlay: [f32; 4]) {
+    pub fn render_sprite(&mut self, sprite: Image, pos: Vector2<f32>, overlay: [f32; 4]) {
+        self.render_sprite_with_dimensions(sprite, pos, sprite.size(), overlay);
+    }
+
+    pub fn render_sprite_with_dimensions(&mut self, sprite: Image, mut pos: Vector2<f32>, dimensions: Vector2<f32>, overlay: [f32; 4]) {
         let (uv_x, uv_y, uv_w, uv_h) = sprite.coordinates();
 
         pos = pos * 2.0 * self.scale_factor();
@@ -371,7 +375,7 @@ impl BufferRenderer {
         pos += self.centering_offset();
         pos = pos.div_element_wise(self.window_size);
 
-        let mut dimensions = (sprite.size() * 2.0)
+        let mut dimensions = (dimensions * 2.0)
             .div_element_wise(self.window_size)
             * self.scale_factor();
         
@@ -381,10 +385,7 @@ impl BufferRenderer {
         self.render(pos, dimensions, Vector2::new(uv_x, uv_y), Vector2::new(uv_w, uv_h), overlay, false);
     }
 
-    pub fn render_box(&mut self, mut pos: Vector2<f32>, mut size: Vector2<f32>, overlay: [f32; 4]) {
-        size.x = size.x.max(2.0);
-        size.y = size.y.max(2.0);
-
+    pub fn render_box(&mut self, mut pos: Vector2<f32>, size: Vector2<f32>, overlay: [f32; 4]) {
         pos = pos * 2.0 * self.scale_factor();
         pos = pos - self.window_size;
         pos += self.centering_offset();
@@ -444,5 +445,14 @@ impl BufferRenderer {
         };
 
         self.glyph_sections.push(section);
+    }
+
+    pub fn render_circle(&mut self, center: Vector2<f32>, radius: f32) {
+        for (x, y) in line_drawing::BresenhamCircle::new(center.x as i32, center.y as i32, (radius / 2.0) as i32) {
+            let position = Vector2::new(x as f32, y as f32);
+            let position = ((position - center) * 2.0) + center;
+
+            self.render_box(position, Vector2::new(2.0, 2.0), [1.0; 4]);
+        }
     }
 }

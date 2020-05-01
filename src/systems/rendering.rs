@@ -56,7 +56,10 @@ impl<'a> System<'a> for RenderHitboxes {
         }
 
         for (pos, hit) in (&pos, &hit).join() {
-            renderer.render_box(pos.0, hit.0, [1.0, 0.0, 0.0, 0.5]);
+            let mut hitbox = hit.0;
+            hitbox.x = hitbox.x.max(2.0);
+            hitbox.y = hitbox.y.max(2.0);
+            renderer.render_box(pos.0, hitbox, [1.0, 0.0, 0.0, 0.5]);
         }
     }
 }
@@ -86,25 +89,47 @@ impl<'a> System<'a> for RenderText {
 pub struct RenderUI;
 
 impl<'a> System<'a> for RenderUI {
-    type SystemData = (ReadStorage<'a, Player>, ReadStorage<'a, Health>, Write<'a, Renderer>);
+    type SystemData = (ReadStorage<'a, Player>, ReadStorage<'a, Health>, ReadStorage<'a, PowerBar>, Write<'a, Renderer>);
 
-    fn run(&mut self, (player, health, mut renderer): Self::SystemData) {
-        let mut join = (&player, &health).join().map(|(_, health)| health.0);
+    fn run(&mut self, (player, health, bar, mut renderer): Self::SystemData) {
+        let mut join = (&player, &health, &bar).join().map(|(_, health, bar)| (health.0, bar));
 
-        if let Some(health) = join.next() {
+        const MAX_BAR_HEIGHT: f32 = 32.0;
+        const BAR_WIDTH: f32 = 16.0;
+        const PADDING: f32 = 4.0;
+        const PADDED_MAX_BAR_HEIGHT: f32 = MAX_BAR_HEIGHT - PADDING;
+        const BAR_DIMENSIONS: Vector2<f32> = Vector2::new(BAR_WIDTH, MAX_BAR_HEIGHT);
+
+        if let Some((health, bar)) = join.next() {
             renderer.render_text(&Text {
-                text: format!("Health: {}", health),
+                text: health.to_string(),
                 font: 1,
-                layout: wgpu_glyph::Layout::default()
-            }, Vector2::new(0.0, 0.0), [1.0; 4]);
+                layout: wgpu_glyph::Layout::default().v_align(wgpu_glyph::VerticalAlign::Center)
+            }, Vector2::new(60.0, HEIGHT - 30.0), [1.0; 4]);
+
+            renderer.render_sprite(Image::from(GraphicsImage::Portrait), Vector2::new(30.0, HEIGHT - 30.0), [0.0; 4]);
+
+            let perc = bar.perc();
+            let missing = (PADDED_MAX_BAR_HEIGHT - (perc * PADDED_MAX_BAR_HEIGHT)) / 2.0;
+
+            renderer.render_box(Vector2::new(80.0, HEIGHT - 30.0), BAR_DIMENSIONS, [0.0, 0.0, 0.0, 1.0]);
+            renderer.render_box(Vector2::new(80.0, HEIGHT - 30.0 + missing), Vector2::new(BAR_WIDTH - PADDING, perc * PADDED_MAX_BAR_HEIGHT), [0.5, 0.125, 0.125, 1.0]);
         }
 
-        if let Some(health) = join.next() {
+        if let Some((health, bar)) = join.next() {
             renderer.render_text(&Text {
-                text: format!("Health: {}", health),
+                text: health.to_string(),
                 font: 1,
-                layout: wgpu_glyph::Layout::default()
-            }, Vector2::new(0.0, 20.0), [1.0; 4]);
+                layout: wgpu_glyph::Layout::default().v_align(wgpu_glyph::VerticalAlign::Center).h_align(wgpu_glyph::HorizontalAlign::Right)
+            }, Vector2::new(WIDTH - 60.0, HEIGHT - 30.0), [1.0; 4]);
+
+            renderer.render_sprite(Image::from(GraphicsImage::Portrait), Vector2::new(WIDTH - 30.0, HEIGHT - 30.0), [0.0; 4]);
+
+            let perc = bar.perc();
+            let missing = (PADDED_MAX_BAR_HEIGHT - (perc * PADDED_MAX_BAR_HEIGHT)) / 2.0;
+
+            renderer.render_box(Vector2::new(WIDTH - 80.0, HEIGHT - 30.0), BAR_DIMENSIONS, [0.0, 0.0, 0.0, 1.0]);
+            renderer.render_box(Vector2::new(WIDTH - 80.0, HEIGHT - 30.0 + missing), Vector2::new(BAR_WIDTH - PADDING, perc * PADDED_MAX_BAR_HEIGHT), [0.5, 0.125, 0.125, 1.0]);
         }
     }
 }
@@ -155,6 +180,18 @@ impl<'a> System<'a> for ExplosionImages {
             } else {
                 entities.delete(entity).unwrap();
             }
+        }
+    }
+}
+
+pub struct RenderBombs;
+
+impl<'a> System<'a> for RenderBombs {
+    type SystemData = (Write<'a, Renderer>, ReadStorage<'a, Position>, ReadStorage<'a, Circle>);
+
+    fn run(&mut self, (mut renderer, pos, circle): Self::SystemData) {
+        for (pos, circle) in (&pos, &circle).join() {
+            renderer.render_circle(pos.0, circle.radius);
         }
     }
 }

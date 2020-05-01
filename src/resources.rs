@@ -148,6 +148,7 @@ pub struct PlayerControlsState {
     pub right: KeyState,
     pub down: KeyState,
     pub fire: KeyState,
+    pub bomb: KeyState,
 }
 
 impl PlayerControlsState {
@@ -158,6 +159,7 @@ impl PlayerControlsState {
             Item::owned(format!("right: {:?}", self.right.key)),
             Item::owned(format!("down: {:?}", self.down.key)),
             Item::owned(format!("fire: {:?}", self.fire.key)),
+            Item::owned(format!("bomb: {:?}", self.bomb)),
         ]
     }
 
@@ -168,12 +170,14 @@ impl PlayerControlsState {
             right: KeyState::new(VirtualKeyCode::Right),
             down: KeyState::new(VirtualKeyCode::Down),
             fire: KeyState::new(VirtualKeyCode::Z),
+            bomb: KeyState::new(VirtualKeyCode::X),
         }
     }
 
     fn player_one() -> Self {
         let mut controls = Self::single_player();
         controls.fire = KeyState::new(VirtualKeyCode::Slash);
+        controls.bomb = KeyState::new(VirtualKeyCode::Period);
         controls
     }
 
@@ -184,6 +188,7 @@ impl PlayerControlsState {
             right: KeyState::new(VirtualKeyCode::D),
             down: KeyState::new(VirtualKeyCode::S),
             fire: KeyState::new(VirtualKeyCode::V),
+            bomb: KeyState::new(VirtualKeyCode::B),
         }
     }
 
@@ -193,6 +198,7 @@ impl PlayerControlsState {
         self.right.press(key, pressed);
         self.down.press(key, pressed);
         self.fire.press(key, pressed);
+        self.bomb.press(key, pressed);
     }
 }
 

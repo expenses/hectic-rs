@@ -1,7 +1,7 @@
 use specs::prelude::*;
-use cgmath::Vector2;
+use cgmath::{Vector2, MetricSpace, InnerSpace};
 use rand::Rng;
-use crate::{resources::*, components::*, graphics::Image as GraphicsImage};
+use crate::{WIDTH, HEIGHT, resources::*, components::*, graphics::Image as GraphicsImage};
 use super::is_touching;
 
 pub struct FireBullets;
@@ -44,15 +44,15 @@ impl<'a> System<'a> for SpawnBullets {
         Entities<'a>, Write<'a, BulletSpawner>,
         WriteStorage<'a, Position>, WriteStorage<'a, Image>, WriteStorage<'a, Movement>,
         WriteStorage<'a, DieOffscreen>, WriteStorage<'a, Friendly>, WriteStorage<'a, Enemy>,
-        WriteStorage<'a, Hitbox>,
-        WriteStorage<'a, Health>,
+        WriteStorage<'a, Hitbox>, WriteStorage<'a, Health>, WriteStorage<'a, CollidesWithBomb>,
     );
 
-    fn run(&mut self, (entities, mut spawner, mut pos, mut image, mut mov, mut dieoffscreen, mut friendly, mut enemy, mut hitbox, mut health): Self::SystemData) {
+    fn run(&mut self, (entities, mut spawner, mut pos, mut image, mut mov, mut dieoffscreen, mut friendly, mut enemy, mut hitbox, mut health, mut collides): Self::SystemData) {
         for bullet in spawner.0.drain(..) {
             if bullet.enemy {
                 entities.build_entity()
                     .with(Enemy, &mut enemy)
+                    .with(CollidesWithBomb, &mut collides)
             } else {
                 entities.build_entity()
                     .with(Friendly, &mut friendly)
@@ -100,12 +100,12 @@ pub struct ApplyCollisions;
 
 impl<'a> System<'a> for ApplyCollisions {
     type SystemData = (
-        Entities<'a>, Write<'a, DamageTracker>, Read<'a, GameTime>,
-        WriteStorage<'a, Health>, WriteStorage<'a, Position>, WriteStorage<'a, Explosion>, WriteStorage<'a, Invulnerability>,
+        Entities<'a>, Write<'a, DamageTracker>, Read<'a, LazyUpdate>, Read<'a, GameTime>,
+        WriteStorage<'a, Health>, WriteStorage<'a, Position>, WriteStorage<'a, Invulnerability>,
         WriteStorage<'a, PowerOrb>, WriteStorage<'a, Movement>, WriteStorage<'a, Image>, WriteStorage<'a, Hitbox>, WriteStorage<'a, DieOffscreen>,
     );
 
-    fn run(&mut self, (entities, mut damage_tracker, time, mut health, mut pos, mut explosion, mut invul, mut orb, mut falling, mut images, mut hitbox, mut dieoffscreen): Self::SystemData) {
+    fn run(&mut self, (entities, mut damage_tracker, updater, time, mut health, mut pos, mut invul, mut orb, mut falling, mut images, mut hitbox, mut dieoffscreen): Self::SystemData) {
         let mut rng = rand::thread_rng();
 
         for mut damage in damage_tracker.0.drain(..) {
@@ -116,10 +116,7 @@ impl<'a> System<'a> for ApplyCollisions {
                 damage.position.x += rng.gen_range(-5.0, 5.0);
                 damage.position.y += rng.gen_range(-5.0, 5.0);
     
-                entities.build_entity()
-                    .with(Position(damage.position), &mut pos)
-                    .with(Explosion(time.total_time), &mut explosion)
-                    .build();
+                build_explosion(&updater, &entities, damage.position, time.total_time);
 
                 if enemy_dead && rng.gen_range(0.0, 1.0) > 0.6 {
                     let (value, image) = if rng.gen_range(0.0, 1.0) > 0.9 { (5, GraphicsImage::BigOrb) } else { (1, GraphicsImage::Orb) };
@@ -154,4 +151,35 @@ fn damage_entity(entity: Entity, entities: &Entities, health: &mut WriteStorage<
     }
 
     (triggered_invul, dead)
+}
+
+pub struct ExpandBombs;
+
+impl<'a> System<'a> for ExpandBombs {
+    type SystemData = (Entities<'a>, Read<'a, specs::world::LazyUpdate>, Read<'a, GameTime>, WriteStorage<'a, Circle>, ReadStorage<'a, Position>, ReadStorage<'a, CollidesWithBomb>);
+
+    fn run(&mut self, (entities, updater, time, mut circle, position, collides): Self::SystemData) {
+        for (entity, mut circle, circle_pos) in (&entities, &mut circle, &position).join() {
+            circle.radius += 8.0;
+            
+            if circle.radius.powi(2) >= Vector2::new(WIDTH, HEIGHT).magnitude2() {
+                entities.delete(entity).unwrap();
+            }
+
+            for (entity, pos, _) in (&entities, &position, &collides).join() {
+                if pos.0.distance2(circle_pos.0) <= circle.radius.powi(2) {
+                    entities.delete(entity).unwrap();
+
+                    build_explosion(&updater, &entities, pos.0, time.total_time);
+                }
+            }
+        }
+    }
+}
+
+fn build_explosion(updater: &specs::world::LazyUpdate, entities: &Entities, pos: Vector2<f32>, time: f32) {
+    updater.create_entity(&entities)
+        .with(Position(pos))
+        .with(Explosion(time))
+        .build();
 }

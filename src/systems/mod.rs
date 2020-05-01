@@ -149,12 +149,12 @@ pub struct Control;
 
 impl<'a> System<'a> for Control {
     type SystemData = (
-        Read<'a, ControlsState>, Read<'a, GameTime>, Write<'a, BulletSpawner>,
-        ReadStorage<'a, Player>, WriteStorage<'a, Position>, WriteStorage<'a, Cooldown>
+        Entities<'a>, Read<'a, ControlsState>, Read<'a, GameTime>, Read<'a, LazyUpdate>, Write<'a, BulletSpawner>,
+        ReadStorage<'a, Player>, WriteStorage<'a, Position>, WriteStorage<'a, Cooldown>, WriteStorage<'a, PowerBar>,
     );
 
-    fn run(&mut self, (ctrl_state, time, mut spawner, player, mut position, mut cooldown): Self::SystemData) {
-        for (player, mut pos, cooldown) in (&player, &mut position, &mut cooldown).join() {
+    fn run(&mut self, (entities, ctrl_state, time, updater, mut bullet_spawner, player, mut position, mut cooldown, mut bar): Self::SystemData) {
+        for (player, mut pos, cooldown, bar) in (&player, &mut position, &mut cooldown, &mut bar).join() {
             let player_ctrl_state = ctrl_state.get(*player);
 
             if player_ctrl_state.left.pressed {
@@ -175,13 +175,20 @@ impl<'a> System<'a> for Control {
 
             if player_ctrl_state.fire.pressed && cooldown.is_ready(time.total_time) {
                 for direction in &[-0.2_f32, -0.1, 0.0, 0.1, 0.2] {
-                    spawner.0.push(BulletToBeSpawned {
+                    bullet_spawner.0.push(BulletToBeSpawned {
                         pos: pos.0,
                         image: Image::from(GraphicsImage::PlayerBullet),
                         velocity: Vector2::new(direction.sin(), -direction.cos()) * PLAYER_BULLET_SPEED,
                         enemy: false,
                     });
                 }
+            }
+
+            if player_ctrl_state.bomb.pressed && bar.empty() {
+                updater.create_entity(&entities)
+                    .with(Position(pos.0))
+                    .with(Circle { radius: 0.0 })
+                    .build();
             }
         }
     }
@@ -291,7 +298,7 @@ impl<'a> System<'a> for CollectOrbs {
             for (orb_entity, orb, orb_pos, orb_hit) in (&entities, &orb, &position, &hitbox).join() {
                 if is_touching(player_pos.0, player_hit.0, orb_pos.0, orb_hit.0).is_some() {
                     entities.delete(orb_entity).unwrap();
-                    power_bar.0 += orb.0;
+                    power_bar.add(orb.0);
                 }
             }
         }

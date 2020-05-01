@@ -59,6 +59,8 @@ async fn run() {
     world.register::<components::TargetPlayer>();
     world.register::<components::PowerOrb>();
     world.register::<components::PowerBar>();
+    world.register::<components::Circle>();
+    world.register::<components::CollidesWithBomb>();
 
     world.insert(resources::ControlsState::load());
     world.insert(buffer_renderer);
@@ -67,10 +69,11 @@ async fn run() {
     world.insert(resources::DamageTracker::default());
     world.insert(resources::PlayerPositions::default());
     world.insert(resources::Mode::default());
-    
+
     let db = DispatcherBuilder::new()
         .with(systems::TogglePaused, "TogglePaused", &[])
         .with(systems::KillOffscreen, "KillOffscreen", &[])
+        .with(systems::ExpandBombs, "ExpandCircles", &[])
         .with(systems::MoveEntities, "MoveEntities", &[])
         .with(systems::CollectOrbs, "CollectOrbs", &[])
         .with(systems::Control, "Control", &[])
@@ -86,6 +89,7 @@ async fn run() {
         .with(systems::ExplosionImages, "ExplosionImages", &["ApplyCollisions"])
         .with(systems::RenderSprite, "RenderSprite", &["MoveEntities", "Control", "SpawnBullets", "ExplosionImages"])
         .with(systems::RenderText, "RenderText", &["RenderSprite"])
+        .with(systems::RenderBombs, "RenderBombs", &["RenderSprite"])
         .with(systems::RenderHitboxes, "RenderHitboxes", &["RenderSprite"])
         .with(systems::RenderUI, "RenderUI", &["RenderSprite"]);
 
@@ -98,6 +102,7 @@ async fn run() {
         .with(systems::ControlMenu, "ControlMenu", &[])
         .with(systems::RenderSprite, "RenderSprite", &[])
         .with(systems::RenderText, "RenderText", &["RenderSprite"])
+        .with(systems::RenderBombs, "RenderBombs", &["RenderSprite"])
         .with(systems::RenderHitboxes, "RenderHitboxes", &["RenderSprite"])
         .with(systems::RenderUI, "RenderUI", &["RenderSprite"])
         .with(systems::RenderPauseBackground, "RenderPauseBackground", &["RenderSprite"])
