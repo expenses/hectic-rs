@@ -248,6 +248,9 @@ impl Renderer {
             None
         };
 
+        let offset = renderer.centering_offset() / 2.0;
+        let dimensions = renderer.dimensions();
+
         let output = self.swap_chain.get_next_texture().unwrap();
         let mut encoder = self.device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
         {
@@ -263,8 +266,6 @@ impl Renderer {
             });
 
             if let Some((vertices, indices)) = &buffers {
-                let offset = renderer.centering_offset() / 2.0;
-                let dimensions = renderer.dimensions();
                 rpass.set_scissor_rect(offset.x as u32, offset.y as u32, dimensions.x as u32, dimensions.y as u32);
 
                 rpass.set_pipeline(&self.pipeline);
@@ -280,12 +281,22 @@ impl Renderer {
             let layout = wgpu_glyph::PixelPositioner(section.layout);
             self.glyph_brush.queue_custom_layout(&section, &layout);
         }
-        self.glyph_brush.draw_queued(
+
+        fn orthographic_projection(width: f32, height: f32) -> [f32; 16] {
+            [
+                2.0 / width, 0.0, 0.0, 0.0,
+                0.0, -2.0 / height, 0.0, 0.0,
+                0.0, 0.0, 1.0, 0.0,
+                -1.0, 1.0, 0.0, 1.0,
+            ]
+        }
+
+        self.glyph_brush.draw_queued_with_transform_and_scissoring(
             &self.device,
             &mut encoder,
             &output.view,
-            self.swap_chain_desc.width,
-            self.swap_chain_desc.height,
+            orthographic_projection(renderer.window_size.x, renderer.window_size.y),
+            wgpu_glyph::Region { x: offset.x as u32, y: offset.y as u32, width: dimensions.x as u32, height: dimensions.y as u32 },
         ).unwrap();
 
         self.queue.submit(Some(encoder.finish()));
