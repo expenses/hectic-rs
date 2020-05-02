@@ -12,6 +12,8 @@ mod systems;
 mod stages;
 mod renderer;
 
+use resources::*;
+
 use std::alloc::System;
 
 #[global_allocator]
@@ -65,13 +67,14 @@ async fn run() {
     world.register::<components::Boss>();
     world.register::<components::ColourOverlay>();
 
-    world.insert(resources::ControlsState::load());
+    world.insert(ControlsState::load());
     world.insert(buffer_renderer);
-    world.insert(resources::GameTime::default());
-    world.insert(resources::PlayerPositions::default());
-    world.insert(resources::Mode::default());
+    world.insert(GameTime::default());
+    world.insert(PlayerPositions::default());
+    world.insert(Mode::default());
 
     let db = DispatcherBuilder::new()
+        .with(systems::FinishStage, "FinishStage", &[])
         .with(systems::MoveBosses, "MoveBosses", &[])
         .with(systems::ExplosionImages, "ExplosionImages", &[])
         .with(systems::TogglePaused, "TogglePaused", &[])
@@ -137,32 +140,39 @@ async fn run() {
 
                 match code {
                     VirtualKeyCode::Escape => *control_flow = ControlFlow::Exit,
-                    _ => world.fetch_mut::<resources::ControlsState>().press(code, pressed),
+                    _ => world.fetch_mut::<ControlsState>().press(code, pressed),
                 }
             }
             _ => {}
         },
         Event::MainEventsCleared => {
-            let mode: resources::Mode = *world.fetch();
+            let mode: Mode = *world.fetch();
+            let game_time: GameTime = *world.fetch();
             match mode {
-                resources::Mode::MainMenu { .. } | resources::Mode::Stages { .. } | resources::Mode::Controls { .. } => menu_dispatcher.dispatch(&world),
-                resources::Mode::Playing => playing_dispatcher.dispatch(&world),
-                resources::Mode::Paused { .. } => paused_dispatcher.dispatch(&world),
-                resources::Mode::Quit => *control_flow = ControlFlow::Exit,
-                resources::Mode::StageOne { multiplayer } => {
-                    stages::stage_one(&mut world, multiplayer);
-                    *world.fetch_mut() = resources::Mode::Playing;
+                Mode::MainMenu { .. } | Mode::Stages { .. } | Mode::Controls { .. } | Mode::StageComplete { .. } | Mode::StageLost { .. } => menu_dispatcher.dispatch(&world),
+                Mode::Playing { state: PlayingState::Won { at: won_at }, stage, multiplayer } if won_at + 1.0 < game_time.total_time => {
+                    *world.fetch_mut() = Mode::StageComplete { stage, selected: 0, multiplayer };
                 },
-                resources::Mode::StageTwo { multiplayer } => {
-                    stages::stage_two(&mut world, multiplayer);
-                    *world.fetch_mut() = resources::Mode::Playing;
+                Mode::Playing { state: PlayingState::Lost { at: lost_at }, .. } if lost_at + 1.0 < game_time.total_time => {
+                    *world.fetch_mut() = Mode::StageLost { selected: 0 };
                 }
+                Mode::Playing { .. } => playing_dispatcher.dispatch(&world),
+                Mode::Paused { .. } => paused_dispatcher.dispatch(&world),
+                Mode::Quit => *control_flow = ControlFlow::Exit,
+                Mode::StartStage { stage, multiplayer } => {
+                    match stage {
+                        Stage::One => stages::stage_one(&mut world, multiplayer),
+                        Stage::Two => stages::stage_two(&mut world, multiplayer),
+                    }
+
+                    *world.fetch_mut() = Mode::Playing { stage, state: PlayingState::Playing, multiplayer };
+                },
             }
             world.maintain();
             renderer.request_redraw();
         },
         Event::RedrawRequested(_) => renderer.render(&mut world.fetch_mut()),
-        Event::LoopDestroyed => world.fetch::<resources::ControlsState>().save(),
+        Event::LoopDestroyed => world.fetch::<ControlsState>().save(),
         _ => {}
     });
 }

@@ -1,5 +1,4 @@
 use specs::prelude::*;
-use rand::rngs::ThreadRng;
 
 use crate::components::*;
 use crate::resources::*;
@@ -112,8 +111,8 @@ impl<'a> System<'a> for TogglePaused {
     fn run(&mut self, (mut ctrl_state, mut mode): Self::SystemData) {
         if ctrl_state.pause.pressed {
             *mode = match *mode {
-                Mode::Playing => Mode::Paused { selected: 0 },
-                Mode::Paused { .. } => Mode::Playing,
+                Mode::Playing { stage, state, multiplayer } => Mode::Paused { selected: 0, stage, state, multiplayer },
+                Mode::Paused { stage, state, multiplayer, .. } => Mode::Playing { stage, state, multiplayer },
                 _ => *mode
             };
             ctrl_state.pause.pressed = false;
@@ -144,9 +143,9 @@ impl<'a> System<'a> for ControlMenu {
 
             if player_ctrl_state.fire.pressed {
                 match *mode {
-                    Mode::Paused { selected } => {
+                    Mode::Paused { selected, stage, state, multiplayer } => {
                         *mode = match selected {
-                            0 => Mode::Playing,
+                            0 => Mode::Playing { stage, state, multiplayer } ,
                             1 => Mode::MainMenu { selected: 0 },
                             _ => unreachable!()
                         }
@@ -161,8 +160,8 @@ impl<'a> System<'a> for ControlMenu {
                     },
                     Mode::Stages { selected, multiplayer } => {
                         *mode = match selected {
-                            0 => Mode::StageOne { multiplayer },
-                            1 => Mode::StageTwo { multiplayer },
+                            0 => Mode::StartStage { stage: Stage::One, multiplayer },
+                            1 => Mode::StartStage { stage: Stage::Two, multiplayer },
                             2 => Mode::Stages { selected, multiplayer: !multiplayer },
                             3 => Mode::MainMenu { selected: 0 },
                             _ => unreachable!()
@@ -172,8 +171,19 @@ impl<'a> System<'a> for ControlMenu {
                         if selected == last_item {
                             *mode = Mode::MainMenu { selected: 1 };
                         }
-                    }
-                    _ => {}
+                    },
+                    Mode::StageComplete { stage, selected, multiplayer } => {
+                        *mode = match selected {
+                            0 => match stage {
+                                Stage::One => Mode::StartStage { stage: Stage::Two, multiplayer },
+                                Stage::Two => Mode::StageComplete { stage, selected, multiplayer }
+                            },
+                            1 => Mode::MainMenu { selected: 0 },
+                            _ => unreachable!()
+                        }
+                    },
+                    Mode::StageLost { .. } => *mode = Mode::MainMenu { selected: 0 },
+                    Mode::Playing { .. } | Mode::StartStage { .. } | Mode::Quit => {}
                 }
 
                 player_ctrl_state.fire.pressed = false;
@@ -386,4 +396,38 @@ fn build_bullet(entities: &Entities, updater: &LazyUpdate, pos: Vector2<f32>, im
     }
     
     builder.build();
+}
+
+pub struct FinishStage;
+
+impl<'a> System<'a> for FinishStage {
+    type SystemData = (
+        Entities<'a>, Read<'a, LazyUpdate>, Write<'a, Mode>, Read<'a, GameTime>,
+        ReadStorage<'a, Position>, ReadStorage<'a, Enemy>, ReadStorage<'a, Player>, ReadStorage<'a, Boss>);
+
+    fn run(&mut self, (entities, updater, mut mode, time, pos, enemy, player, boss): Self::SystemData) {
+        if let Mode::Playing { ref mut state, .. } = *mode {
+            if let PlayingState::Playing = *state {
+                if (&player).join().count() == 0 {
+                    *state = PlayingState::Lost { at: time.total_time };
+                }
+
+                if (&boss).join().count() == 0 {
+                    for (entity, pos, _) in (&entities, &pos, &enemy).join() {
+                        build_explosion(&updater, &entities, pos.0, time.total_time);
+                        entities.delete(entity).unwrap();
+                    }
+
+                    *state = PlayingState::Won { at: time.total_time };
+                }
+            }
+        }
+    }
+}
+
+fn build_explosion(updater: &specs::world::LazyUpdate, entities: &Entities, pos: Vector2<f32>, time: f32) {
+    updater.create_entity(&entities)
+        .with(Position(pos))
+        .with(Explosion(time))
+        .build();
 }

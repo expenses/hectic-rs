@@ -2,7 +2,7 @@ use specs::prelude::*;
 use cgmath::{Vector2, MetricSpace, InnerSpace};
 use rand::{Rng, rngs::ThreadRng};
 use crate::{WIDTH, HEIGHT, resources::*, components::*, graphics::Image as GraphicsImage};
-use super::{is_touching, build_bullet};
+use super::{is_touching, build_bullet, build_explosion};
 
 pub struct FireBullets;
 
@@ -149,11 +149,4 @@ impl<'a> System<'a> for ExpandBombs {
             }
         }
     }
-}
-
-fn build_explosion(updater: &specs::world::LazyUpdate, entities: &Entities, pos: Vector2<f32>, time: f32) {
-    updater.create_entity(&entities)
-        .with(Position(pos))
-        .with(Explosion(time))
-        .build();
 }

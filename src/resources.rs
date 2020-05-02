@@ -6,15 +6,29 @@ use std::borrow::Cow;
 use serde::{Serialize, Deserialize};
 
 #[derive(Clone, Copy, Debug)]
-pub enum Mode {
+pub enum Stage {
+    One,
+    Two,
+}
+
+#[derive(Clone, Copy, Debug)]
+pub enum PlayingState {
     Playing,
-    Paused { selected: usize },
+    Won { at: f32 },
+    Lost { at: f32 }
+}
+
+#[derive(Clone, Copy, Debug)]
+pub enum Mode {
+    Playing { stage: Stage, state: PlayingState, multiplayer: bool },
+    StageComplete { stage: Stage, selected: usize, multiplayer: bool },
+    Paused { selected: usize, stage: Stage, state: PlayingState, multiplayer: bool },
     MainMenu { selected: usize },
     Controls { selected: usize },
     Quit,
     Stages { selected: usize, multiplayer: bool },
-    StageOne { multiplayer: bool },
-    StageTwo { multiplayer: bool },
+    StartStage { stage: Stage, multiplayer: bool },
+    StageLost { selected: usize },
 }
 
 impl Default for Mode {
@@ -26,7 +40,7 @@ impl Default for Mode {
 impl Mode {
     pub fn as_menu(&mut self, ctrl_state: &ControlsState) -> Option<Menu> {
         match self {
-            Mode::Paused { selected } => Some(Menu {
+            Mode::Paused { selected, .. } => Some(Menu {
                 title: "Paused",
                 items: vec![Item::new("Resume"), Item::new("Main Menu")],
                 selected,
@@ -48,6 +62,22 @@ impl Mode {
             Mode::Controls { selected } => Some(Menu {
                 title: "Controls",
                 items: ctrl_state.as_items(),
+                selected,
+            }),
+            Mode::StageComplete { stage, selected, .. } => Some(Menu {
+                title: "Stage\nComplete!",
+                items: vec![
+                    match stage {
+                        Stage::One => Item::new("Continue to next stage"),
+                        Stage::Two => Item::unactive("No Stage 3 yet!"),
+                    },
+                    Item::new("Main Menu")
+                ],
+                selected
+            }),
+            Mode::StageLost { selected } => Some(Menu {
+                title: "Stage\nLost",
+                items: vec![Item::new("Main Menu")],
                 selected,
             }),
             _ => None,
@@ -237,6 +267,7 @@ impl KeyState {
     }
 }
 
+#[derive(Clone, Copy)]
 pub struct GameTime {
     pub total_time: f32,
 }
