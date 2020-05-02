@@ -22,11 +22,12 @@ pub struct RenderSprite { sorted_bgs: Vec<(Vector2<f32>, Image, u32)> }
 
 impl<'a> System<'a> for RenderSprite {
     type SystemData = (
-        ReadStorage<'a, Position>, ReadStorage<'a, Image>, ReadStorage<'a, Invulnerability>, ReadStorage<'a, FrozenUntil>, ReadStorage<'a, BackgroundLayer>,
+        ReadStorage<'a, Position>, ReadStorage<'a, Image>, ReadStorage<'a, Invulnerability>, ReadStorage<'a, FrozenUntil>,
+        ReadStorage<'a, BackgroundLayer>, ReadStorage<'a, ColourOverlay>,
         Read<'a, GameTime>, Write<'a, Renderer>
     );
 
-    fn run(&mut self, (pos, image, invul, frozen, bg, time, mut renderer): Self::SystemData) {
+    fn run(&mut self, (pos, image, invul, frozen, bg, overlay, time, mut renderer): Self::SystemData) {
         self.sorted_bgs.extend((&pos, &image, &bg).join().map(|(pos, image, bg)| (pos.0, *image, bg.depth)));
         self.sorted_bgs.sort_unstable_by_key(|&(_, _, depth)| depth);
 
@@ -34,11 +35,15 @@ impl<'a> System<'a> for RenderSprite {
             renderer.render_sprite(image, pos, [0.0; 4]);
         }
 
-        for (pos, image, invul, _, _) in (&pos, &image, invul.maybe(), !&frozen, !&bg).join() {
-            let overlay = invul
-                .filter(|invul| invul.is_invul(time.total_time))
-                .map(|_| [1.0, 1.0, 1.0, 0.2])
-                .unwrap_or([0.0; 4]);
+        for (pos, image, invul, overlay, _, _) in (&pos, &image, invul.maybe(), overlay.maybe(), !&frozen, !&bg).join() {
+            let overlay = overlay
+                .map(|overlay| overlay.0)
+                .unwrap_or_else(|| {
+                    invul
+                        .filter(|invul| invul.is_invul(time.total_time))
+                        .map(|_| [1.0, 1.0, 1.0, 0.2])
+                        .unwrap_or([0.0; 4])
+                });
 
             renderer.render_sprite(*image, pos.0, overlay);
         }

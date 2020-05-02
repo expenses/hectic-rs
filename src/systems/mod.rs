@@ -1,4 +1,5 @@
 use specs::prelude::*;
+use rand::rngs::ThreadRng;
 
 use crate::components::*;
 use crate::resources::*;
@@ -211,7 +212,7 @@ impl<'a> System<'a> for Control {
 
             if player_ctrl_state.fire.pressed && cooldown.is_ready(time.total_time) {
                 for direction in &[-0.2_f32, -0.1, 0.0, 0.1, 0.2] {
-                    build_bullet(&entities, &updater, pos.0, Image::from(GraphicsImage::PlayerBullet), Vector2::new(direction.sin(), -direction.cos()) * PLAYER_BULLET_SPEED, false);
+                    build_bullet(&entities, &updater, pos.0, Image::from(GraphicsImage::PlayerBullet), Vector2::new(direction.sin(), -direction.cos()) * PLAYER_BULLET_SPEED, false, None);
                 }
             }
 
@@ -363,8 +364,8 @@ fn is_touching(pos_a: Vector2<f32>, hit_a: Vector2<f32>, pos_b: Vector2<f32>, hi
     }
 }
 
-fn build_bullet(entities: &Entities, updater: &LazyUpdate, pos: Vector2<f32>, image: Image, velocity: Vector2<f32>, enemy: bool) {
-    if enemy {
+fn build_bullet(entities: &Entities, updater: &LazyUpdate, pos: Vector2<f32>, image: Image, velocity: Vector2<f32>, enemy: bool, colour_bullets: Option<&ColourBullets>) {
+    let mut builder = if enemy {
         updater.create_entity(entities)
             .with(Enemy)
             .with(CollidesWithBomb)
@@ -377,6 +378,11 @@ fn build_bullet(entities: &Entities, updater: &LazyUpdate, pos: Vector2<f32>, im
         .with(Movement::Linear(velocity))
         .with(DieOffscreen)
         .with(Hitbox(Vector2::new(0.0, 0.0)))
-        .with(Health(1))
-        .build();
+        .with(Health(1));
+
+    if let Some(colour_bullets) = colour_bullets {
+        builder = builder.with(ColourOverlay(colour_bullets.overlay(&mut rand::thread_rng())));
+    }
+    
+    builder.build();
 }

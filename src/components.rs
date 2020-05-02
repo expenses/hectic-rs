@@ -1,6 +1,8 @@
 use cgmath::Vector2;
 use specs::*;
 use cgmath::MetricSpace;
+use rand::{Rng, rngs::ThreadRng};
+use palette::IntoColor;
 
 use crate::{WIDTH, HEIGHT};
 use crate::graphics::Image as GraphicsImage;
@@ -96,6 +98,20 @@ pub struct BossMove {
     pub fires: FiresBullets,
 }
 
+
+#[derive(Component)]
+pub struct ColourOverlay(pub [f32; 4]);
+
+#[derive(Component)]
+pub struct ColourBullets;
+
+impl ColourBullets {
+    pub fn overlay(&self, rng: &mut ThreadRng) -> [f32; 4] {
+        let hsv = palette::Hsv::<_, f32>::new(rng.gen_range(15.0, 45.0), 1.0, 1.0);
+        let rgb: palette::LinSrgb = hsv.into_rgb();
+        [rgb.red, rgb.green, rgb.blue, 0.75]
+    }
+}
 
 #[derive(Component, Clone)]
 pub struct FiresBullets {

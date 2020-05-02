@@ -63,6 +63,8 @@ async fn run() {
     world.register::<components::CollidesWithBomb>();
     world.register::<components::MoveTowards>();
     world.register::<components::Boss>();
+    world.register::<components::ColourOverlay>();
+    world.register::<components::ColourBullets>();
 
     world.insert(resources::ControlsState::load());
     world.insert(buffer_renderer);

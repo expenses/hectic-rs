@@ -8,15 +8,15 @@ pub struct FireBullets;
 
 impl<'a> System<'a> for FireBullets {
     type SystemData = (
-        Entities<'a>, ReadStorage<'a, Position>, WriteStorage<'a, FiresBullets>, ReadStorage<'a, BeenOnscreen>,
+        Entities<'a>, ReadStorage<'a, Position>, WriteStorage<'a, FiresBullets>, ReadStorage<'a, BeenOnscreen>, ReadStorage<'a, ColourBullets>,
         Read<'a, LazyUpdate>, Read<'a, GameTime>, Read<'a, PlayerPositions>,
     );
 
-    fn run(&mut self, (entities, pos, mut fires, onscreen, updater, time, player_positions): Self::SystemData) {
+    fn run(&mut self, (entities, pos, mut fires, onscreen, colour_bullets, updater, time, player_positions): Self::SystemData) {
         let mut rng = rand::thread_rng();
 
-        for (pos, fires, _) in (&pos, &mut fires, &onscreen).join() {
-            handle_firing_method(&entities, &updater, &mut fires.method, time.total_time, &player_positions, &mut rng, pos.0, fires.image, fires.speed);
+        for (pos, fires, colour_bullets, _) in (&pos, &mut fires, colour_bullets.maybe(), &onscreen).join() {
+            handle_firing_method(&entities, &updater, &mut fires.method, time.total_time, &player_positions, &mut rng, pos.0, fires.image, fires.speed, colour_bullets);
         }
     }
 }
@@ -24,7 +24,7 @@ impl<'a> System<'a> for FireBullets {
 pub fn handle_firing_method(
     entities: &Entities, updater: &LazyUpdate, method: &mut FiringMethod,
     total_time: f32, player_positions: &PlayerPositions, rng: &mut ThreadRng,
-    pos: Vector2<f32>, image: Image, speed: f32
+    pos: Vector2<f32>, image: Image, speed: f32, colour_bullets: Option<&ColourBullets>,
 ) {
     match method {
         FiringMethod::AtPlayer { num_bullets, spread, cooldown } => if cooldown.is_ready(total_time) {
@@ -38,13 +38,13 @@ pub fn handle_firing_method(
                 let rotation_difference = *spread * (mid_point - i as f32) / *num_bullets as f32;
 
                 let rotation = rotation + rotation_difference;
-                build_bullet(entities, updater, pos, image, Vector2::new(rotation.cos(), rotation.sin()) * speed, true);
+                build_bullet(entities, updater, pos, image, Vector2::new(rotation.cos(), rotation.sin()) * speed, true, colour_bullets);
             }
         },
         FiringMethod::Circle { sides, rotation, rotation_per_fire, cooldown } => if cooldown.is_ready(total_time) {
             for side in 0 .. *sides {
                 let rotation = (side as f32 / *sides as f32) * std::f32::consts::PI * 2.0 + *rotation;
-                build_bullet(entities, updater, pos, image, Vector2::new(rotation.cos(), rotation.sin()) * speed, true);
+                build_bullet(entities, updater, pos, image, Vector2::new(rotation.cos(), rotation.sin()) * speed, true, colour_bullets);
             }
 
             *rotation += *rotation_per_fire;
@@ -53,12 +53,12 @@ pub fn handle_firing_method(
             for _ in 0 .. *fired_at_once {
                 if *fired_so_far < *number_to_fire {
                     let rotation = *initial_rotation + *spread * (*fired_so_far as f32 / *number_to_fire as f32);
-                    build_bullet(entities, updater, pos, image, Vector2::new(rotation.cos(), rotation.sin()) * speed, true);
+                    build_bullet(entities, updater, pos, image, Vector2::new(rotation.cos(), rotation.sin()) * speed, true, colour_bullets);
                     *fired_so_far += 1;
                 }
             }
         },
-        FiringMethod::Multiple(vec) => for method in vec { handle_firing_method(entities, updater, method, total_time, player_positions, rng, pos, image, speed); }
+        FiringMethod::Multiple(vec) => for method in vec { handle_firing_method(entities, updater, method, total_time, player_positions, rng, pos, image, speed, colour_bullets); }
     }
 }
 

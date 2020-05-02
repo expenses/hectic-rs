@@ -225,6 +225,7 @@ fn boss_one(world: &mut World, start: f32) {
         .with(components::Health(3000))
         .with(components::Image::from(graphics::Image::BossOne))
         .with(components::Hitbox(Vector2::new(30.0, 40.0)))
+        .with(components::ColourBullets)
         .with(components::Boss {
             current_move: 0,
             move_timer: 0.0,
