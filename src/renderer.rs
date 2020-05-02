@@ -364,7 +364,7 @@ impl BufferRenderer {
     }
 
     pub fn render_sprite(&mut self, sprite: Image, pos: Vector2<f32>, overlay: [f32; 4]) {
-        self.render_sprite_with_dimensions(sprite, pos, sprite.size(), overlay);
+        self.render_sprite_with_dimensions(sprite, pos, sprite.size() * 2.0, overlay);
     }
 
     pub fn render_sprite_with_dimensions(&mut self, sprite: Image, mut pos: Vector2<f32>, dimensions: Vector2<f32>, overlay: [f32; 4]) {
@@ -375,9 +375,7 @@ impl BufferRenderer {
         pos += self.centering_offset();
         pos = pos.div_element_wise(self.window_size);
 
-        let mut dimensions = (dimensions * 2.0)
-            .div_element_wise(self.window_size)
-            * self.scale_factor();
+        let mut dimensions = dimensions.div_element_wise(self.window_size) * self.scale_factor();
         
         pos.y = -pos.y;
         dimensions.y = -dimensions.y;

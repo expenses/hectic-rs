@@ -83,6 +83,7 @@ impl Text {
 pub struct Boss {
     pub move_timer: f32,
     pub current_move: usize,
+    pub max_health: u32,
     pub moves: Vec<BossMove>,
 }
 

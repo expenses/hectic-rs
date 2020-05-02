@@ -1,6 +1,5 @@
 use specs::prelude::*;
 use crate::{components::*, graphics, WIDTH, HEIGHT, ZERO, MIDDLE};
-use Curve;
 use cgmath::Vector2;
 use rand::Rng;
 
@@ -19,9 +18,7 @@ pub fn stage_one(world: &mut World, multiplayer: bool) {
     create_title(world, "Stage\nOne");
     create_players(world, multiplayer);
 
-    boss_two(world, 5.0);
-
-    /*for start in float_iter(1.0, 6.0, 0.25) {
+    for start in float_iter(1.0, 6.0, 0.25) {
         bat_with_curve(world, Curve::horizontal(100.0, 300.0, true, 2.5), start);
         bat_with_curve(world, Curve::horizontal(150.0, 350.0, true, 2.5), start);
     }
@@ -41,22 +38,47 @@ pub fn stage_one(world: &mut World, multiplayer: bool) {
         bat_with_curve(world, Curve::horizontal(400.0, 600.0, true, 2.5), start)
     }
 
+    let rock_bullet = BulletSetup { image: Image::from(graphics::Image::RockBullet), speed: 2.8, colour: None };
+
     for x in [0.25, 0.5, 0.75].iter() {
+        let start = 24.0;
+
         enemy(
             world,
             Vector2::new(x * WIDTH, -50.0),
-            Movement::FiringMove { speed: 2.5, return_time: 34.0, stop_time: 25.0 },
-            24.0,
+            Movement::FiringMove { speed: 2.5, return_time: start + 10.0, stop_time: start + 1.0 },
+            start,
             15,
             graphics::Image::Gargoyle,
             Vector2::new(45.0, 25.0),
         )
-            .with(FiresBullets {
-                image: Image::from(graphics::Image::RockBullet),
-                speed: 2.5,
-                method: FiringMethod::AtPlayer(3, 1.0),
+            .with(FiresBullets::AtPlayer {
+                num_bullets: 3,
+                spread: 1.0,
+                cooldown: Cooldown::ready_at(1.0, start + 1.0 + rng.gen_range(-0.25, 0.5)),
+                setup: rock_bullet
             })
-            .with(Cooldown::ready_at(1.0, rng.gen_range(24.5, 25.5)))
+            .build();
+    }
+
+    for x in [0.375, 0.625].iter() {
+        let start = 28.0;
+
+        enemy(
+            world,
+            Vector2::new(x * WIDTH, -50.0),
+            Movement::FiringMove { speed: 2.5, return_time: start + 10.0, stop_time: start + 1.0 },
+            start,
+            15,
+            graphics::Image::Gargoyle,
+            Vector2::new(45.0, 25.0),
+        )
+            .with(FiresBullets::AtPlayer {
+                num_bullets: 3,
+                spread: 1.0,
+                cooldown: Cooldown::ready_at(1.0, start + 1.0 + rng.gen_range(-0.25, 0.5)),
+                setup: rock_bullet
+            })
             .build();
     }
 
@@ -64,9 +86,29 @@ pub fn stage_one(world: &mut World, multiplayer: bool) {
         bat_with_curve(world, Curve::circular(200.0, 1000.0, 2.5), start);
     }
 
-    for start in float_iter(35.0, 45.0, 0.25) {
+    for start in float_iter(35.0, 50.0, 0.25) {
         hell_bat(world, start, Vector2::new(rng.gen_range(0.0, WIDTH), -50.0));
-    }*/
+    }
+
+    for start in float_iter(45.0, 50.0, 1.0) {
+        enemy_with_curve(
+            world,
+            Curve::horizontal(100.0, 300.0, true, 2.5),
+            start,
+            15,
+            graphics::Image::Gargoyle,
+            Vector2::new(45.0, 25.0),
+        )
+            .with(FiresBullets::AtPlayer {
+                num_bullets: 1,
+                spread: 0.0,
+                cooldown: Cooldown::ready_at(1.0, start + rng.gen_range(0.0, 0.5)),
+                setup: rock_bullet
+            })
+            .build();
+    }
+
+    boss_one(world, 55.0);
 }
 
 fn hell_bat(world: &mut World, start: f32, position: Vector2<f32>) {
@@ -200,6 +242,8 @@ pub fn stage_two(world: &mut World, multiplayer: bool) {
             flying_skull(world, start, Vector2::new(WIDTH + 25.0, rng.gen_range(0.0, HEIGHT / 2.0)));
         }
     }
+
+    boss_two(world, 55.0);
 }
 
 fn flying_skull(world: &mut World, start: f32, position: Vector2<f32>) {
@@ -228,10 +272,11 @@ fn boss_one(world: &mut World, start: f32) {
         .with(FrozenUntil(start))
         .with(DieOffscreen)
         .with(Enemy)
-        .with(Health(3000))
+        .with(Health(300))
         .with(Image::from(graphics::Image::BossOne))
         .with(Hitbox(Vector2::new(30.0, 40.0)))
         .with(Boss {
+            max_health: 300,
             current_move: 0,
             move_timer: 0.0,
             moves: vec![
@@ -287,10 +332,11 @@ fn boss_two(world: &mut World, start: f32) {
         .with(FrozenUntil(start))
         .with(DieOffscreen)
         .with(Enemy)
-        .with(Health(4000))
+        .with(Health(400))
         .with(Image::from(graphics::Image::BossTwo))
         .with(Hitbox(Vector2::new(30.0, 40.0)))
         .with(Boss {
+            max_health: 400,
             current_move: 0,
             move_timer: 0.0,
             moves: vec![

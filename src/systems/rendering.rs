@@ -94,9 +94,9 @@ impl<'a> System<'a> for RenderText {
 pub struct RenderUI;
 
 impl<'a> System<'a> for RenderUI {
-    type SystemData = (ReadStorage<'a, Player>, ReadStorage<'a, Health>, ReadStorage<'a, PowerBar>, Write<'a, Renderer>);
+    type SystemData = (ReadStorage<'a, Player>, ReadStorage<'a, Health>, ReadStorage<'a, PowerBar>, ReadStorage<'a, Boss>, ReadStorage<'a, FrozenUntil>, Write<'a, Renderer>);
 
-    fn run(&mut self, (player, health, bar, mut renderer): Self::SystemData) {
+    fn run(&mut self, (player, health, bar, boss, frozen, mut renderer): Self::SystemData) {
         let mut join = (&player, &health, &bar).join().map(|(_, health, bar)| (health.0, bar));
 
         const MAX_BAR_HEIGHT: f32 = 32.0;
@@ -135,6 +135,14 @@ impl<'a> System<'a> for RenderUI {
 
             renderer.render_box(Vector2::new(WIDTH - 80.0, HEIGHT - 30.0), BAR_DIMENSIONS, [0.0, 0.0, 0.0, 1.0]);
             renderer.render_box(Vector2::new(WIDTH - 80.0, HEIGHT - 30.0 + missing), Vector2::new(BAR_WIDTH - PADDING, perc * PADDED_MAX_BAR_HEIGHT), [0.5, 0.125, 0.125, 1.0]);
+        }
+
+        let mut offset = 10.0;
+
+        for (health, boss, _) in (&health, &boss, !&frozen).join() {
+            let width = (WIDTH - 20.0) * health.0 as f32 / boss.max_health as f32;
+            renderer.render_sprite_with_dimensions(Image::from(GraphicsImage::BossHealthBar), Vector2::new(WIDTH / 2.0, offset), Vector2::new(width, 10.0), [0.0; 4]);
+            offset += 15.0
         }
     }
 }
