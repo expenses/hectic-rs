@@ -19,7 +19,9 @@ pub fn stage_one(world: &mut World, multiplayer: bool) {
     create_title(world, "Stage\nOne");
     create_players(world, multiplayer);
 
-    for start in float_iter(1.0, 6.0, 0.25) {
+    boss_one(world, 5.0);
+
+    /*for start in float_iter(1.0, 6.0, 0.25) {
         bat_with_curve(world, Curve::horizontal(100.0, 300.0, true, 2.5), start);
         bat_with_curve(world, Curve::horizontal(150.0, 350.0, true, 2.5), start);
     }
@@ -64,7 +66,7 @@ pub fn stage_one(world: &mut World, multiplayer: bool) {
 
     for start in float_iter(35.0, 45.0, 0.25) {
         hell_bat(world, start, Vector2::new(rng.gen_range(0.0, WIDTH), -50.0));
-    }
+    }*/
 }
 
 fn hell_bat(world: &mut World, start: f32, position: Vector2<f32>) {
@@ -182,9 +184,8 @@ pub fn stage_two(world: &mut World, multiplayer: bool) {
             .with(components::FiresBullets {
                 image: components::Image::from(graphics::Image::DarkBullet),
                 speed: spectre_speed,
-                method: components::FiringMethod::AtPlayer(1, 0.0),
+                method: components::FiringMethod::AtPlayer { num_bullets: 1, spread: 0.0, cooldown: components::Cooldown::ready_at(1.0, rng.gen_range(start, start + 1.0)) },
             })
-            .with(components::Cooldown::ready_at(1.0, rng.gen_range(start, start + 1.0)))
             .build();
     }
 
@@ -209,5 +210,68 @@ fn flying_skull(world: &mut World, start: f32, position: Vector2<f32>) {
         .with(components::Image::from(graphics::Image::FlyingSkull))
         .with(components::Hitbox(Vector2::new(25.0, 25.0)))
         .with(components::TargetPlayer(10.0 / 3.0))
+        .build();
+}
+
+fn boss_one(world: &mut World, start: f32) {
+    let speed = 10.0 / 3.0;
+    let bullet_image = components::Image::from(graphics::Image::ColouredBullet);
+
+    world.create_entity()
+        .with(components::Position(Vector2::new(WIDTH / 2.0, -50.0)))
+        .with(components::FrozenUntil(start))
+        .with(components::DieOffscreen)
+        .with(components::Enemy)
+        .with(components::Health(3000))
+        .with(components::Image::from(graphics::Image::BossOne))
+        .with(components::Hitbox(Vector2::new(30.0, 40.0)))
+        .with(components::Boss {
+            current_move: 0,
+            move_timer: 0.0,
+            moves: vec![
+                components::BossMove {
+                    position: Vector2::new(100.0, 100.0),
+                    fires: components::FiresBullets {
+                        image: bullet_image,
+                        speed,
+                        method: components::FiringMethod::Multiple(vec![
+                            components::FiringMethod::Arc { initial_rotation: 0.0, spread: 2.0, number_to_fire: 20, fired_at_once: 1, fired_so_far: 0, cooldown: components::Cooldown::new(0.05) },
+                            components::FiringMethod::Arc { initial_rotation: 2.0, spread: -2.0, number_to_fire: 20, fired_at_once: 1, fired_so_far: 0, cooldown: components::Cooldown::new(0.05) }
+                        ])
+                    },
+                    duration: 4.0,
+                },
+                components::BossMove {
+                    position: Vector2::new(150.0, 150.0),
+                    fires: components::FiresBullets {
+                        image: bullet_image,
+                        speed,
+                        method: components::FiringMethod::Multiple(vec![
+                            components::FiringMethod::AtPlayer { num_bullets: 3, spread: 1.0, cooldown: components::Cooldown::new(0.75) },
+                            components::FiringMethod::Circle { sides: 4, rotation_per_fire: 0.5, rotation: 0.0, cooldown: components::Cooldown::new(0.1) }
+                        ])
+                    },
+                    duration: 6.0,
+                },
+                components::BossMove {
+                    position: Vector2::new(WIDTH / 2.0, 100.0),
+                    fires: components::FiresBullets {
+                        image: bullet_image,
+                        speed,
+                        method: components::FiringMethod::Circle { sides: 6, rotation_per_fire: 0.2, rotation: 0.0, cooldown: components::Cooldown::new(0.1) }
+                    },
+                    duration: 6.0,
+                },
+                components::BossMove {
+                    position: Vector2::new(400.0, 200.0),
+                    fires: components::FiresBullets {
+                        image: bullet_image,
+                        speed,
+                        method: components::FiringMethod::AtPlayer { num_bullets: 5, spread: 0.5, cooldown: components::Cooldown::new(0.25) }
+                    },
+                    duration: 2.0,
+                },
+            ]
+        })
         .build();
 }

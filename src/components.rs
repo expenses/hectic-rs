@@ -78,6 +78,26 @@ impl Text {
 }
 
 #[derive(Component)]
+pub struct Boss {
+    pub move_timer: f32,
+    pub current_move: usize,
+    pub moves: Vec<BossMove>,
+}
+
+impl Boss {
+    pub fn current_move(&self) -> &BossMove {
+        &self.moves[self.current_move]
+    }
+}
+
+pub struct BossMove {
+    pub position: Vector2<f32>,
+    pub duration: f32,
+    pub fires: FiresBullets,
+}
+
+
+#[derive(Component, Clone)]
 pub struct FiresBullets {
     pub image: Image,
     pub speed: f32,
@@ -88,6 +108,9 @@ pub struct FiresBullets {
 pub struct TargetPlayer(pub f32);
 
 #[derive(Component)]
+pub struct MoveTowards { pub position: Vector2<f32>, pub speed: f32 }
+
+#[derive(Component, Clone)]
 pub struct Cooldown {
     cooldown_time: f32,
     last_fired: f32,
@@ -118,8 +141,12 @@ impl Cooldown {
     }
 }
 
+#[derive(Clone)]
 pub enum FiringMethod {
-    AtPlayer(u16, f32)
+    AtPlayer { num_bullets: u16, spread: f32, cooldown: Cooldown },
+    Circle { sides: u16, rotation_per_fire: f32, rotation: f32, cooldown: Cooldown },
+    Arc { initial_rotation: f32, spread: f32, fired_at_once: u16, number_to_fire: u16, fired_so_far: u16, cooldown: Cooldown },
+    Multiple(Vec<FiringMethod>),
 }
 
 

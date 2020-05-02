@@ -61,6 +61,8 @@ async fn run() {
     world.register::<components::PowerBar>();
     world.register::<components::Circle>();
     world.register::<components::CollidesWithBomb>();
+    world.register::<components::MoveTowards>();
+    world.register::<components::Boss>();
 
     world.insert(resources::ControlsState::load());
     world.insert(buffer_renderer);
@@ -69,6 +71,7 @@ async fn run() {
     world.insert(resources::Mode::default());
 
     let db = DispatcherBuilder::new()
+        .with(systems::MoveBosses, "MoveBosses", &[])
         .with(systems::ExplosionImages, "ExplosionImages", &[])
         .with(systems::TogglePaused, "TogglePaused", &[])
         .with(systems::KillOffscreen, "KillOffscreen", &[])

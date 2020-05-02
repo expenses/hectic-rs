@@ -3,7 +3,7 @@ use specs::prelude::*;
 use crate::components::*;
 use crate::resources::*;
 
-use cgmath::Vector2;
+use cgmath::{Vector2, InnerSpace, MetricSpace};
 
 use crate::graphics::Image as GraphicsImage;
 
@@ -21,9 +21,9 @@ pub use bullets::*;
 pub struct MoveEntities;
 
 impl<'a> System<'a> for MoveEntities {
-    type SystemData = (WriteStorage<'a, Position>, WriteStorage<'a, Movement>, ReadStorage<'a, FrozenUntil>, Read<'a, GameTime>);
+    type SystemData = (WriteStorage<'a, Position>, WriteStorage<'a, Movement>, ReadStorage<'a, FrozenUntil>, ReadStorage<'a, MoveTowards>, Read<'a, GameTime>);
 
-    fn run(&mut self, (mut pos, mut mov, frozen, game_time): Self::SystemData) {
+    fn run(&mut self, (mut pos, mut mov, frozen, move_towards, game_time): Self::SystemData) {
         for (mut pos, mov, _) in (&mut pos, &mut mov, !&frozen).join() {
             match mov {
                 Movement::Linear(vector) => pos.0 += *vector,
@@ -45,6 +45,42 @@ impl<'a> System<'a> for MoveEntities {
                     } else if *stop_time > game_time.total_time {
                         pos.0.y += *speed;
                     }
+                }
+            }
+        }
+
+        for (mut pos, move_towards, _) in (&mut pos, &move_towards, !&frozen).join() {
+            if pos.0.distance2(move_towards.position) > move_towards.speed.powi(2) {
+                pos.0 += (move_towards.position - pos.0).normalize_to(move_towards.speed);
+            } else {
+                pos.0 = move_towards.position;
+            }
+        }
+    }
+}
+
+pub struct MoveBosses;
+
+impl<'a> System<'a> for MoveBosses {
+    type SystemData = (Entities<'a>, ReadStorage<'a, Position>, WriteStorage<'a, Boss>, WriteStorage<'a, MoveTowards>, WriteStorage<'a, FiresBullets>);
+
+    fn run(&mut self, (entities, pos, mut boss, mut move_towards, mut fires): Self::SystemData) {
+        for (entity, pos, mut boss) in (&entities, &pos, &mut boss).join() {
+            let target_position = boss.current_move().position;
+            move_towards.insert(entity, MoveTowards { position: target_position, speed: 10.0 / 3.0}).unwrap();
+
+            if pos.0 == target_position {
+                if let specs::storage::StorageEntry::Vacant(slot) = fires.entry(entity).unwrap() {
+                    slot.insert(boss.current_move().fires.clone());
+                }
+
+                boss.move_timer += 1.0 / 60.0;
+
+                if boss.move_timer >= boss.current_move().duration {
+                    fires.remove(entity);
+
+                    boss.move_timer = 0.0;
+                    boss.current_move = (boss.current_move + 1) % boss.moves.len();
                 }
             }
         }
