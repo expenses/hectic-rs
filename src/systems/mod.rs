@@ -154,6 +154,7 @@ impl<'a> System<'a> for ControlMenu {
                         *mode = match selected {
                             0 => Mode::Stages { selected: 0, multiplayer: false },
                             1 => Mode::Controls { selected: 0 },
+                            #[cfg(feature = "native")]
                             2 => Mode::Quit,
                             _ => unreachable!()
                         };

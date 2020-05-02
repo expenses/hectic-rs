@@ -47,7 +47,13 @@ impl Mode {
             }),
             Mode::MainMenu { selected } => Some(Menu {
                 title: "Hectic",
-                items: vec![Item::new("Play"), Item::new("Controls"), Item::new("Quit")],
+                items: vec![
+                    Item::new("Play"),
+                    Item::new("Controls"),
+                    // lol
+                    #[cfg(feature = "native")]
+                    Item::new("Quit")
+                ],
                 selected,
             }),
             Mode::Stages { selected, multiplayer } => Some(Menu {
