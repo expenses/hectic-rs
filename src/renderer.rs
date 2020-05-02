@@ -67,7 +67,7 @@ impl Renderer {
                 anisotropic_filtering: false,
             },
             limits: wgpu::Limits::default(),
-        }).await.unwrap();
+        }, Some(&std::path::Path::new("."))).await.unwrap();
 
         let vs = include_bytes!("shader.vert.spv");
         let vs_module =
@@ -87,7 +87,7 @@ impl Renderer {
             .texture_filter_method(wgpu::FilterMode::Nearest)
             .build(&device, wgpu::TextureFormat::Bgra8Unorm);
 
-        let mut init_encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
+        let mut init_encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("Hectic init CommandEncoder") });
         let packed_texture = crate::graphics::load_packed(&device, &mut init_encoder);
         let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
             address_mode_u: wgpu::AddressMode::Repeat,
@@ -99,6 +99,7 @@ impl Renderer {
             lod_min_clamp: 0.0,
             lod_max_clamp: 0.0,
             compare: wgpu::CompareFunction::Undefined,
+            label: Some("Hectic Sampler")
         });
 
         let bind_group_layout =
@@ -119,7 +120,7 @@ impl Renderer {
                         ty: wgpu::BindingType::Sampler { comparison: false },
                     },
                 ],
-                label: None,
+                label: Some("Hectic BindGroupLayout"),
             });
 
         let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
@@ -134,7 +135,7 @@ impl Renderer {
                     resource: wgpu::BindingResource::Sampler(&sampler),
                 },
             ],
-            label: None,
+            label: Some("Hectic BindGroup"),
         });
 
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
@@ -252,7 +253,7 @@ impl Renderer {
         let dimensions = renderer.dimensions();
 
         let output = self.swap_chain.get_next_texture().unwrap();
-        let mut encoder = self.device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
+        let mut encoder = self.device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("Hectic CommandEncoder") });
         {
             let mut rpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 color_attachments: &[wgpu::RenderPassColorAttachmentDescriptor {

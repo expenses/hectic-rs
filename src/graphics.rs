@@ -18,7 +18,7 @@ fn load_png(bytes: &'static [u8], device: &wgpu::Device, encoder: &mut wgpu::Com
         dimension: wgpu::TextureDimension::D2,
         format: wgpu::TextureFormat::Rgba8Unorm,
         usage: wgpu::TextureUsage::SAMPLED | wgpu::TextureUsage::COPY_DST,
-        label: None,
+        label: Some("Hectic Texture"),
     });
 
     encoder.copy_buffer_to_texture(
@@ -45,6 +45,7 @@ fn load_png(bytes: &'static [u8], device: &wgpu::Device, encoder: &mut wgpu::Com
         level_count: 1,
         base_array_layer: 0,
         array_layer_count: 0,
+        label: Some("Hectic TextureView")
     })
 }
 
