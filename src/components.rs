@@ -98,26 +98,37 @@ pub struct BossMove {
     pub fires: FiresBullets,
 }
 
+#[derive(Clone, Copy)]
+pub struct BulletSetup {
+    pub image: Image,
+    pub speed: f32,
+    pub colour: Option<ColourBullets>
+}
 
 #[derive(Component)]
 pub struct ColourOverlay(pub [f32; 4]);
 
-#[derive(Component)]
-pub struct ColourBullets;
+#[derive(Clone, Copy)]
+pub enum ColourBullets {
+    Purple,
+    Orange
+}
 
 impl ColourBullets {
     pub fn overlay(&self, rng: &mut ThreadRng) -> [f32; 4] {
-        let hsv = palette::Hsv::<_, f32>::new(rng.gen_range(15.0, 45.0), 1.0, 1.0);
-        let rgb: palette::LinSrgb = hsv.into_rgb();
-        [rgb.red, rgb.green, rgb.blue, 0.75]
+        match *self {
+            Self::Purple => {
+                let hsv = palette::Hsv::<_, f32>::new(270.0, 0.8, rng.gen_range(0.5, 1.0));
+                let rgb: palette::LinSrgb = hsv.into_rgb();
+                [rgb.red, rgb.green, rgb.blue, 0.75]
+            },
+            Self::Orange => {
+                let hsv = palette::Hsv::<_, f32>::new(rng.gen_range(15.0, 45.0), 1.0, 1.0);
+                let rgb: palette::LinSrgb = hsv.into_rgb();
+                [rgb.red, rgb.green, rgb.blue, 0.75]
+            }
+        }
     }
-}
-
-#[derive(Component, Clone)]
-pub struct FiresBullets {
-    pub image: Image,
-    pub speed: f32,
-    pub method: FiringMethod
 }
 
 #[derive(Component)]
@@ -157,12 +168,12 @@ impl Cooldown {
     }
 }
 
-#[derive(Clone)]
-pub enum FiringMethod {
-    AtPlayer { num_bullets: u16, spread: f32, cooldown: Cooldown },
-    Circle { sides: u16, rotation_per_fire: f32, rotation: f32, cooldown: Cooldown },
-    Arc { initial_rotation: f32, spread: f32, fired_at_once: u16, number_to_fire: u16, fired_so_far: u16, cooldown: Cooldown },
-    Multiple(Vec<FiringMethod>),
+#[derive(Clone, Component)]
+pub enum FiresBullets {
+    AtPlayer { num_bullets: u16, spread: f32, cooldown: Cooldown, setup: BulletSetup },
+    Circle { sides: u16, rotation_per_fire: f32, rotation: f32, cooldown: Cooldown, setup: BulletSetup },
+    Arc { initial_rotation: f32, spread: f32, fired_at_once: u16, number_to_fire: u16, fired_so_far: u16, cooldown: Cooldown, setup: BulletSetup },
+    Multiple(Vec<FiresBullets>),
 }
 
 

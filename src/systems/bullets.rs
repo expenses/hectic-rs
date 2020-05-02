@@ -8,26 +8,26 @@ pub struct FireBullets;
 
 impl<'a> System<'a> for FireBullets {
     type SystemData = (
-        Entities<'a>, ReadStorage<'a, Position>, WriteStorage<'a, FiresBullets>, ReadStorage<'a, BeenOnscreen>, ReadStorage<'a, ColourBullets>,
+        Entities<'a>, ReadStorage<'a, Position>, WriteStorage<'a, FiresBullets>, ReadStorage<'a, BeenOnscreen>,
         Read<'a, LazyUpdate>, Read<'a, GameTime>, Read<'a, PlayerPositions>,
     );
 
-    fn run(&mut self, (entities, pos, mut fires, onscreen, colour_bullets, updater, time, player_positions): Self::SystemData) {
+    fn run(&mut self, (entities, pos, mut fires, onscreen, updater, time, player_positions): Self::SystemData) {
         let mut rng = rand::thread_rng();
 
-        for (pos, fires, colour_bullets, _) in (&pos, &mut fires, colour_bullets.maybe(), &onscreen).join() {
-            handle_firing_method(&entities, &updater, &mut fires.method, time.total_time, &player_positions, &mut rng, pos.0, fires.image, fires.speed, colour_bullets);
+        for (pos, mut fires, _) in (&pos, &mut fires, &onscreen).join() {
+            handle_fires_bullets(&entities, &updater, &mut fires, time.total_time, &player_positions, &mut rng, pos.0);
         }
     }
 }
 
-pub fn handle_firing_method(
-    entities: &Entities, updater: &LazyUpdate, method: &mut FiringMethod,
+pub fn handle_fires_bullets(
+    entities: &Entities, updater: &LazyUpdate, fires: &mut FiresBullets,
     total_time: f32, player_positions: &PlayerPositions, rng: &mut ThreadRng,
-    pos: Vector2<f32>, image: Image, speed: f32, colour_bullets: Option<&ColourBullets>,
+    pos: Vector2<f32>,
 ) {
-    match method {
-        FiringMethod::AtPlayer { num_bullets, spread, cooldown } => if cooldown.is_ready(total_time) {
+    match fires {
+        FiresBullets::AtPlayer { num_bullets, spread, cooldown, setup } => if cooldown.is_ready(total_time) {
             let player = player_positions.random(rng);
 
             // Get the rotation to the player
@@ -38,27 +38,27 @@ pub fn handle_firing_method(
                 let rotation_difference = *spread * (mid_point - i as f32) / *num_bullets as f32;
 
                 let rotation = rotation + rotation_difference;
-                build_bullet(entities, updater, pos, image, Vector2::new(rotation.cos(), rotation.sin()) * speed, true, colour_bullets);
+                build_bullet(entities, updater, pos, setup.image, Vector2::new(rotation.cos(), rotation.sin()) * setup.speed, true, setup.colour);
             }
         },
-        FiringMethod::Circle { sides, rotation, rotation_per_fire, cooldown } => if cooldown.is_ready(total_time) {
+        FiresBullets::Circle { sides, rotation, rotation_per_fire, cooldown, setup } => if cooldown.is_ready(total_time) {
             for side in 0 .. *sides {
                 let rotation = (side as f32 / *sides as f32) * std::f32::consts::PI * 2.0 + *rotation;
-                build_bullet(entities, updater, pos, image, Vector2::new(rotation.cos(), rotation.sin()) * speed, true, colour_bullets);
+                build_bullet(entities, updater, pos, setup.image, Vector2::new(rotation.cos(), rotation.sin()) * setup.speed, true, setup.colour);
             }
 
             *rotation += *rotation_per_fire;
         },
-        FiringMethod::Arc { initial_rotation, spread, fired_at_once, number_to_fire, fired_so_far, cooldown } => if cooldown.is_ready(total_time) {
+        FiresBullets::Arc { initial_rotation, spread, fired_at_once, number_to_fire, fired_so_far, cooldown, setup } => if cooldown.is_ready(total_time) {
             for _ in 0 .. *fired_at_once {
                 if *fired_so_far < *number_to_fire {
                     let rotation = *initial_rotation + *spread * (*fired_so_far as f32 / *number_to_fire as f32);
-                    build_bullet(entities, updater, pos, image, Vector2::new(rotation.cos(), rotation.sin()) * speed, true, colour_bullets);
+                    build_bullet(entities, updater, pos, setup.image, Vector2::new(rotation.cos(), rotation.sin()) * setup.speed, true, setup.colour);
                     *fired_so_far += 1;
                 }
             }
         },
-        FiringMethod::Multiple(vec) => for method in vec { handle_firing_method(entities, updater, method, total_time, player_positions, rng, pos, image, speed, colour_bullets); }
+        FiresBullets::Multiple(vec) => for fires in vec { handle_fires_bullets(entities, updater, fires, total_time, player_positions, rng, pos); }
     }
 }
 

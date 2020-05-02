@@ -364,7 +364,7 @@ fn is_touching(pos_a: Vector2<f32>, hit_a: Vector2<f32>, pos_b: Vector2<f32>, hi
     }
 }
 
-fn build_bullet(entities: &Entities, updater: &LazyUpdate, pos: Vector2<f32>, image: Image, velocity: Vector2<f32>, enemy: bool, colour_bullets: Option<&ColourBullets>) {
+fn build_bullet(entities: &Entities, updater: &LazyUpdate, pos: Vector2<f32>, image: Image, velocity: Vector2<f32>, enemy: bool, colour_bullets: Option<ColourBullets>) {
     let mut builder = if enemy {
         updater.create_entity(entities)
             .with(Enemy)

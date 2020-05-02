@@ -1,6 +1,6 @@
 use specs::prelude::*;
-use crate::{components, graphics, WIDTH, HEIGHT, ZERO, MIDDLE};
-use components::Curve;
+use crate::{components::*, graphics, WIDTH, HEIGHT, ZERO, MIDDLE};
+use Curve;
 use cgmath::Vector2;
 use rand::Rng;
 
@@ -19,7 +19,7 @@ pub fn stage_one(world: &mut World, multiplayer: bool) {
     create_title(world, "Stage\nOne");
     create_players(world, multiplayer);
 
-    boss_one(world, 5.0);
+    boss_two(world, 5.0);
 
     /*for start in float_iter(1.0, 6.0, 0.25) {
         bat_with_curve(world, Curve::horizontal(100.0, 300.0, true, 2.5), start);
@@ -45,18 +45,18 @@ pub fn stage_one(world: &mut World, multiplayer: bool) {
         enemy(
             world,
             Vector2::new(x * WIDTH, -50.0),
-            components::Movement::FiringMove { speed: 2.5, return_time: 34.0, stop_time: 25.0 },
+            Movement::FiringMove { speed: 2.5, return_time: 34.0, stop_time: 25.0 },
             24.0,
             15,
             graphics::Image::Gargoyle,
             Vector2::new(45.0, 25.0),
         )
-            .with(components::FiresBullets {
-                image: components::Image::from(graphics::Image::RockBullet),
+            .with(FiresBullets {
+                image: Image::from(graphics::Image::RockBullet),
                 speed: 2.5,
-                method: components::FiringMethod::AtPlayer(3, 1.0),
+                method: FiringMethod::AtPlayer(3, 1.0),
             })
-            .with(components::Cooldown::ready_at(1.0, rng.gen_range(24.5, 25.5)))
+            .with(Cooldown::ready_at(1.0, rng.gen_range(24.5, 25.5)))
             .build();
     }
 
@@ -71,38 +71,38 @@ pub fn stage_one(world: &mut World, multiplayer: bool) {
 
 fn hell_bat(world: &mut World, start: f32, position: Vector2<f32>) {
     world.create_entity()
-        .with(components::Position(position))
-        .with(components::FrozenUntil(start))
-        .with(components::DieOffscreen)
-        .with(components::Enemy)
-        .with(components::Health(12))
-        .with(components::Image::from(graphics::Image::HellBat))
-        .with(components::Hitbox(Vector2::new(25.0, 20.0)))
-        .with(components::TargetPlayer(2.5))
+        .with(Position(position))
+        .with(FrozenUntil(start))
+        .with(DieOffscreen)
+        .with(Enemy)
+        .with(Health(12))
+        .with(Image::from(graphics::Image::HellBat))
+        .with(Hitbox(Vector2::new(25.0, 20.0)))
+        .with(TargetPlayer(2.5))
         .build();
 }
 
-fn bat_with_curve(world: &mut World, curve: components::Curve, start: f32) {
+fn bat_with_curve(world: &mut World, curve: Curve, start: f32) {
     enemy_with_curve(world, curve, start, 4, graphics::Image::Bat, Vector2::new(25.0, 20.0)).build();
 }
 
-fn enemy(world: &mut World, position: Vector2<f32>, movement: components::Movement, start: f32, health: u32, image: graphics::Image, hitbox: Vector2<f32>) -> EntityBuilder {
+fn enemy(world: &mut World, position: Vector2<f32>, movement: Movement, start: f32, health: u32, image: graphics::Image, hitbox: Vector2<f32>) -> EntityBuilder {
     world.create_entity()
         .with(movement)
-        .with(components::Position(position))
-        .with(components::FrozenUntil(start))
-        .with(components::DieOffscreen)
-        .with(components::Enemy)
-        .with(components::Health(health))
-        .with(components::Image::from(image))
-        .with(components::Hitbox(hitbox))
+        .with(Position(position))
+        .with(FrozenUntil(start))
+        .with(DieOffscreen)
+        .with(Enemy)
+        .with(Health(health))
+        .with(Image::from(image))
+        .with(Hitbox(hitbox))
 }
 
-fn enemy_with_curve(world: &mut World, curve: components::Curve, start: f32, health: u32, image: graphics::Image, hitbox: Vector2<f32>) -> EntityBuilder {
+fn enemy_with_curve(world: &mut World, curve: Curve, start: f32, health: u32, image: graphics::Image, hitbox: Vector2<f32>) -> EntityBuilder {
     enemy(
         world,
         curve.b,
-        components::Movement::FollowCurve(curve),
+        Movement::FollowCurve(curve),
         start,
         health,
         image,
@@ -123,41 +123,41 @@ fn float_iter(start: f32, end: f32, step: f32) -> impl Iterator<Item = f32> {
 fn create_players(world: &mut World, two_players: bool) {
     if two_players {
         let offset = Vector2::new(20.0, 0.0);
-        create_player(world, components::Player::One, MIDDLE - offset);
-        create_player(world, components::Player::Two, MIDDLE + offset);
+        create_player(world, Player::One, MIDDLE - offset);
+        create_player(world, Player::Two, MIDDLE + offset);
     } else {
-        create_player(world, components::Player::Single, MIDDLE);
+        create_player(world, Player::Single, MIDDLE);
     }
 }
 
-fn create_player(world: &mut World, player: components::Player, position: Vector2<f32>) {
+fn create_player(world: &mut World, player: Player, position: Vector2<f32>) {
     world.create_entity()
-            .with(components::Position(position))
-            .with(components::Image::from(graphics::Image::Player))
+            .with(Position(position))
+            .with(Image::from(graphics::Image::Player))
             .with(player)
-            .with(components::Cooldown::new(0.075))
-            .with(components::Hitbox(Vector2::new(10.0, 10.0)))
-            .with(components::Friendly)
-            .with(components::Health(3))
-            .with(components::Invulnerability::new())
-            .with(components::PowerBar(0))
+            .with(Cooldown::new(0.075))
+            .with(Hitbox(Vector2::new(10.0, 10.0)))
+            .with(Friendly)
+            .with(Health(3))
+            .with(Invulnerability::new())
+            .with(PowerBar(0))
             .build();
 }
 
 fn create_title(world: &mut World, text: &'static str) {
     world.create_entity()
-        .with(components::Text::title(text))
-        .with(components::Position(Vector2::new(WIDTH / 2.0, 40.0)))
-        .with(components::Movement::Falling { speed: 0.0, down: false })
+        .with(Text::title(text))
+        .with(Position(Vector2::new(WIDTH / 2.0, 40.0)))
+        .with(Movement::Falling { speed: 0.0, down: false })
         .build();
 }
 
 fn create_background(world: &mut World, image: graphics::Image, position: Vector2<f32>, movement: Vector2<f32>, depth: u32) {
     world.create_entity()
-        .with(components::Position(MIDDLE + position))
-        .with(components::Image::from(image))
-        .with(components::Movement::Linear(movement))
-        .with(components::BackgroundLayer { depth })
+        .with(Position(MIDDLE + position))
+        .with(Image::from(image))
+        .with(Movement::Linear(movement))
+        .with(BackgroundLayer { depth })
         .build();
 }
 
@@ -176,16 +176,18 @@ pub fn stage_two(world: &mut World, multiplayer: bool) {
     let spectre_speed = 10.0 / 3.0;
 
     for start in float_iter(5.0, 20.0, 0.5) {
+        let setup = BulletSetup {
+            image: Image::from(graphics::Image::DarkBullet),
+            speed: spectre_speed,
+            colour: None
+        };
+
         enemy_with_curve(
             world,
             Curve::horizontal(rng.gen_range(0.0, HEIGHT / 2.0), rng.gen_range(0.0, HEIGHT / 2.0), true, spectre_speed),
             start, 8, graphics::Image::Spectre, Vector2::new(30.0, 30.0),
         )
-            .with(components::FiresBullets {
-                image: components::Image::from(graphics::Image::DarkBullet),
-                speed: spectre_speed,
-                method: components::FiringMethod::AtPlayer { num_bullets: 1, spread: 0.0, cooldown: components::Cooldown::ready_at(1.0, rng.gen_range(start, start + 1.0)) },
-            })
+            .with(FiresBullets::AtPlayer { num_bullets: 1, spread: 0.0, cooldown: Cooldown::ready_at(1.0, rng.gen_range(start, start + 1.0)), setup })
             .build();
     }
 
@@ -202,76 +204,128 @@ pub fn stage_two(world: &mut World, multiplayer: bool) {
 
 fn flying_skull(world: &mut World, start: f32, position: Vector2<f32>) {
     world.create_entity()
-        .with(components::Position(position))
-        .with(components::FrozenUntil(start))
-        .with(components::DieOffscreen)
-        .with(components::Enemy)
-        .with(components::Health(4))
-        .with(components::Image::from(graphics::Image::FlyingSkull))
-        .with(components::Hitbox(Vector2::new(25.0, 25.0)))
-        .with(components::TargetPlayer(10.0 / 3.0))
+        .with(Position(position))
+        .with(FrozenUntil(start))
+        .with(DieOffscreen)
+        .with(Enemy)
+        .with(Health(4))
+        .with(Image::from(graphics::Image::FlyingSkull))
+        .with(Hitbox(Vector2::new(25.0, 25.0)))
+        .with(TargetPlayer(10.0 / 3.0))
         .build();
 }
 
 fn boss_one(world: &mut World, start: f32) {
     let speed = 10.0 / 3.0;
-    let bullet_image = components::Image::from(graphics::Image::ColouredBullet);
+    let orange_bullet = BulletSetup {
+        image: Image::from(graphics::Image::ColouredBullet),
+        speed,
+        colour: Some(ColourBullets::Orange)
+    };
 
     world.create_entity()
-        .with(components::Position(Vector2::new(WIDTH / 2.0, -50.0)))
-        .with(components::FrozenUntil(start))
-        .with(components::DieOffscreen)
-        .with(components::Enemy)
-        .with(components::Health(3000))
-        .with(components::Image::from(graphics::Image::BossOne))
-        .with(components::Hitbox(Vector2::new(30.0, 40.0)))
-        .with(components::ColourBullets)
-        .with(components::Boss {
+        .with(Position(Vector2::new(WIDTH / 2.0, -50.0)))
+        .with(FrozenUntil(start))
+        .with(DieOffscreen)
+        .with(Enemy)
+        .with(Health(3000))
+        .with(Image::from(graphics::Image::BossOne))
+        .with(Hitbox(Vector2::new(30.0, 40.0)))
+        .with(Boss {
             current_move: 0,
             move_timer: 0.0,
             moves: vec![
-                components::BossMove {
+                BossMove {
                     position: Vector2::new(100.0, 100.0),
-                    fires: components::FiresBullets {
-                        image: bullet_image,
-                        speed,
-                        method: components::FiringMethod::Multiple(vec![
-                            components::FiringMethod::Arc { initial_rotation: 0.0, spread: 2.0, number_to_fire: 20, fired_at_once: 1, fired_so_far: 0, cooldown: components::Cooldown::new(0.05) },
-                            components::FiringMethod::Arc { initial_rotation: 2.0, spread: -2.0, number_to_fire: 20, fired_at_once: 1, fired_so_far: 0, cooldown: components::Cooldown::new(0.05) }
-                        ])
-                    },
+                    fires: FiresBullets::Multiple(vec![
+                        FiresBullets::Arc { initial_rotation: 0.0, spread: 2.0, number_to_fire: 20, fired_at_once: 1, fired_so_far: 0, cooldown: Cooldown::new(0.05), setup: orange_bullet },
+                        FiresBullets::Arc { initial_rotation: 2.0, spread: -2.0, number_to_fire: 20, fired_at_once: 1, fired_so_far: 0, cooldown: Cooldown::new(0.05), setup: orange_bullet }
+                    ]),
                     duration: 4.0,
                 },
-                components::BossMove {
+                BossMove {
                     position: Vector2::new(150.0, 150.0),
-                    fires: components::FiresBullets {
-                        image: bullet_image,
-                        speed,
-                        method: components::FiringMethod::Multiple(vec![
-                            components::FiringMethod::AtPlayer { num_bullets: 3, spread: 1.0, cooldown: components::Cooldown::new(0.75) },
-                            components::FiringMethod::Circle { sides: 4, rotation_per_fire: 0.5, rotation: 0.0, cooldown: components::Cooldown::new(0.1) }
-                        ])
-                    },
+                    fires: FiresBullets::Multiple(vec![
+                        FiresBullets::AtPlayer { num_bullets: 3, spread: 1.0, cooldown: Cooldown::new(0.75), setup: orange_bullet },
+                        FiresBullets::Circle { sides: 4, rotation_per_fire: 0.5, rotation: 0.0, cooldown: Cooldown::new(0.1), setup: orange_bullet }
+                    ]),
                     duration: 6.0,
                 },
-                components::BossMove {
+                BossMove {
                     position: Vector2::new(WIDTH / 2.0, 100.0),
-                    fires: components::FiresBullets {
-                        image: bullet_image,
-                        speed,
-                        method: components::FiringMethod::Circle { sides: 6, rotation_per_fire: 0.2, rotation: 0.0, cooldown: components::Cooldown::new(0.1) }
-                    },
+                    fires: FiresBullets::Circle { sides: 6, rotation_per_fire: 0.2, rotation: 0.0, cooldown: Cooldown::new(0.1), setup: orange_bullet },
                     duration: 6.0,
                 },
-                components::BossMove {
+                BossMove {
                     position: Vector2::new(400.0, 200.0),
-                    fires: components::FiresBullets {
-                        image: bullet_image,
-                        speed,
-                        method: components::FiringMethod::AtPlayer { num_bullets: 5, spread: 0.5, cooldown: components::Cooldown::new(0.25) }
-                    },
+                    fires: FiresBullets::AtPlayer { num_bullets: 5, spread: 0.5, cooldown: Cooldown::new(0.25), setup: orange_bullet },
                     duration: 2.0,
                 },
+            ]
+        })
+        .build();
+}
+
+fn boss_two(world: &mut World, start: f32) {
+    let speed = 10.0 / 3.0;
+    let dark_bullet = BulletSetup {
+        image: Image::from(graphics::Image::DarkBullet),
+        speed,
+        colour: None
+    };
+    let purple_bullet = BulletSetup {
+        image: Image::from(graphics::Image::ColouredBullet),
+        speed,
+        colour: Some(ColourBullets::Purple)
+    };
+
+    let pi = std::f32::consts::PI;
+
+
+    world.create_entity()
+        .with(Position(Vector2::new(WIDTH / 2.0, -50.0)))
+        .with(FrozenUntil(start))
+        .with(DieOffscreen)
+        .with(Enemy)
+        .with(Health(4000))
+        .with(Image::from(graphics::Image::BossTwo))
+        .with(Hitbox(Vector2::new(30.0, 40.0)))
+        .with(Boss {
+            current_move: 0,
+            move_timer: 0.0,
+            moves: vec![
+                BossMove {
+                    position: Vector2::new(WIDTH / 2.0, 150.0),
+                    fires: FiresBullets::Arc { initial_rotation: pi / 2.0, spread: pi * 2.0, number_to_fire: 100, fired_at_once: 2, fired_so_far: 0, cooldown: Cooldown::new(0.015), setup: dark_bullet },
+                    duration: 3.0,
+                },
+                BossMove {
+                    position: Vector2::new(WIDTH / 2.0 - 50.0, 160.0),
+                    fires: FiresBullets::Arc { initial_rotation: pi / 2.0, spread: -pi * 2.0, number_to_fire: 100, fired_at_once: 2, fired_so_far: 0, cooldown: Cooldown::new(0.015), setup: dark_bullet },
+                    duration: 3.0,
+                },
+                BossMove {
+                    position: Vector2::new(WIDTH / 2.0 + 50.0, 170.0),
+                    duration: 5.0,
+                    fires: FiresBullets::Multiple(vec![
+                        FiresBullets::Arc { initial_rotation: 0.0, spread: 2.0 * pi, number_to_fire: 101, fired_at_once: 2, fired_so_far: 0, cooldown: Cooldown::new(0.03), setup: dark_bullet },
+                        FiresBullets::Arc { initial_rotation: 2.0 * pi, spread: 2.0 * -pi, number_to_fire: 101, fired_at_once: 2, fired_so_far: 0, cooldown: Cooldown::new(0.03), setup: dark_bullet }
+                    ])
+                },
+                /*BossMove {
+                    position: Vector2::new(100.0, 100.0),
+                    fires: FiresBullets::Multiple(vec![
+                        FiresBullets::Arc { initial_rotation: pi / 2.0, spread: -pi * 2.0, number_to_fire: 100, fired_at_once: 2, fired_so_far: 0, cooldown: Cooldown::new(0.015), setup: purple_bullet },
+                        FiresBullets::AtPlayer { num_bullets: 3, spread: 0.1, cooldown: Cooldown::new(0.2), setup: dark_bullet }
+                    ]),
+                    duration: 5.0,
+                },*/
+                BossMove {
+                    position: Vector2::new(100.0, 100.0),
+                    fires: FiresBullets::Arc { initial_rotation: pi / 2.0, spread: 10.0 * -pi * 2.0, number_to_fire: 777, fired_at_once: 1, fired_so_far: 0, cooldown: Cooldown::new(0.015), setup: purple_bullet },
+                    duration: 10.0,
+                },
+                
             ]
         })
         .build();
