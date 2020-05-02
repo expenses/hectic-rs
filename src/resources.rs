@@ -149,6 +149,7 @@ pub struct PlayerControlsState {
     pub down: KeyState,
     pub fire: KeyState,
     pub bomb: KeyState,
+    pub slow_movement: KeyState,
 }
 
 impl PlayerControlsState {
@@ -159,7 +160,8 @@ impl PlayerControlsState {
             Item::owned(format!("right: {:?}", self.right.key)),
             Item::owned(format!("down: {:?}", self.down.key)),
             Item::owned(format!("fire: {:?}", self.fire.key)),
-            Item::owned(format!("bomb: {:?}", self.bomb)),
+            Item::owned(format!("bomb: {:?}", self.bomb.key)),
+            Item::owned(format!("slow movement: {:?}", self.slow_movement.key)),
         ]
     }
 
@@ -171,6 +173,7 @@ impl PlayerControlsState {
             down: KeyState::new(VirtualKeyCode::Down),
             fire: KeyState::new(VirtualKeyCode::Z),
             bomb: KeyState::new(VirtualKeyCode::X),
+            slow_movement: KeyState::new(VirtualKeyCode::LShift),
         }
     }
 
@@ -178,6 +181,7 @@ impl PlayerControlsState {
         let mut controls = Self::single_player();
         controls.fire = KeyState::new(VirtualKeyCode::Slash);
         controls.bomb = KeyState::new(VirtualKeyCode::Period);
+        controls.slow_movement = KeyState::new(VirtualKeyCode::RShift);
         controls
     }
 
@@ -189,6 +193,7 @@ impl PlayerControlsState {
             down: KeyState::new(VirtualKeyCode::S),
             fire: KeyState::new(VirtualKeyCode::V),
             bomb: KeyState::new(VirtualKeyCode::B),
+            slow_movement: KeyState::new(VirtualKeyCode::N)
         }
     }
 
@@ -199,6 +204,7 @@ impl PlayerControlsState {
         self.down.press(key, pressed);
         self.fire.press(key, pressed);
         self.bomb.press(key, pressed);
+        self.slow_movement.press(key, pressed);
     }
 }
 

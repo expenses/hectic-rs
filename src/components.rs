@@ -223,7 +223,7 @@ pub struct PowerOrb(pub u32);
 pub struct PowerBar(pub u32);
 
 impl PowerBar {
-    pub const FULL: u32 = 35;
+    pub const FULL: u32 = 50;
 
     pub fn add(&mut self, value: u32) {
         self.0 = (self.0 + value).min(Self::FULL)

@@ -193,21 +193,22 @@ impl<'a> System<'a> for Control {
     fn run(&mut self, (entities, ctrl_state, time, updater, player, mut position, mut cooldown, mut bar): Self::SystemData) {
         for (player, mut pos, cooldown, bar) in (&player, &mut position, &mut cooldown, &mut bar).join() {
             let player_ctrl_state = ctrl_state.get(*player);
+            let speed = if player_ctrl_state.slow_movement.pressed { PLAYER_SPEED / 2.0 } else { PLAYER_SPEED };
 
             if player_ctrl_state.left.pressed {
-                pos.0.x = max(pos.0.x - PLAYER_SPEED, 0.0);
+                pos.0.x = max(pos.0.x - speed, 0.0);
             }
 
             if player_ctrl_state.right.pressed {
-                pos.0.x = min(pos.0.x + PLAYER_SPEED, WIDTH);
+                pos.0.x = min(pos.0.x + speed, WIDTH);
             }
 
             if player_ctrl_state.up.pressed {
-                pos.0.y = max(pos.0.y - PLAYER_SPEED, 0.0);
+                pos.0.y = max(pos.0.y - speed, 0.0);
             }
 
             if player_ctrl_state.down.pressed {
-                pos.0.y = min(pos.0.y + PLAYER_SPEED, HEIGHT);
+                pos.0.y = min(pos.0.y + speed, HEIGHT);
             }
 
             if player_ctrl_state.fire.pressed && cooldown.is_ready(time.total_time) {
