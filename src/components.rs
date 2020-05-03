@@ -178,7 +178,6 @@ pub enum FiresBullets {
     Multiple(Vec<FiresBullets>),
 }
 
-
 const S: f32 = 0.0;
 
 const CURVE_BASIS_MATRIX: [[f32; 4]; 4] = [

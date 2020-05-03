@@ -140,11 +140,7 @@ async fn run() {
                 ..
             } => {
                 let pressed = state == ElementState::Pressed;
-
-                match code {
-                    VirtualKeyCode::Escape => *control_flow = ControlFlow::Exit,
-                    _ => world.fetch_mut::<ControlsState>().press(code, pressed),
-                }
+                world.fetch_mut::<ControlsState>().press(code, pressed);
             }
             _ => {}
         },

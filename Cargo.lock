@@ -2149,7 +2149,7 @@ dependencies = [
 [[package]]
 name = "wgpu_glyph"
 version = "0.8.0"
-source = "git+https://github.com/expenses/wgpu_glyph?branch=experimental#3dd8108122e1f3343d4561efd135ff92d45e41a5"
+source = "git+https://github.com/expenses/wgpu_glyph?branch=experimental#63d41aead4914d0e6e0170f61a92869f60e46b19"
 dependencies = [
  "glyph_brush",
  "log",
