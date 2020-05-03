@@ -1,6 +1,6 @@
 use winit::{
     event_loop::EventLoop,
-    window::{WindowBuilder, Window},
+    window::{Window, Fullscreen},
 };
 
 use cgmath::*;
@@ -21,21 +21,16 @@ pub struct Renderer {
 
 impl Renderer {
     pub async fn new(event_loop: &EventLoop<()>) -> (Self, BufferRenderer) {
-        let window = WindowBuilder::new()
-            //.with_inner_size(winit::dpi::LogicalSize { width: 480.0, height: 640.0 })
-            // Debug only
-            //.with_resizable(false)
-            .build(event_loop)
-            .unwrap();
+        let window = Window::new(event_loop).unwrap();
 
-        let size = window.inner_size();
-        // Non-integer dpi_factors (such as 1.3333334) on my laptop don't render the pixel art very well,
-        // so we floor the dpi factor and use that for the window size.
-        let dpi_factor = window.scale_factor().floor() as f32;
-        window.set_min_inner_size(Some(winit::dpi::PhysicalSize { width: 480.0 * dpi_factor, height: 640.0 * dpi_factor }));
+        #[cfg(feature = "native")]
+        window.set_fullscreen(Some(Fullscreen::Borderless(event_loop.primary_monitor())));
 
         #[cfg(feature = "wasm")]
         {
+            // Going fullscreen seems to crash on the web, so we just use a fixed window size for now.
+            window.set_inner_size(winit::dpi::LogicalSize::new(1270.0, 720.0));
+
             use winit::platform::web::WindowExtWebSys;
             web_sys::window()
                 .and_then(|win| win.document())
@@ -67,7 +62,7 @@ impl Renderer {
                 anisotropic_filtering: false,
             },
             limits: wgpu::Limits::default(),
-        }, Some(&std::path::Path::new("."))).await.unwrap();
+        }, Some(&std::path::Path::new("trace"))).await.unwrap();
 
         let vs = include_bytes!("shader.vert.spv");
         let vs_module =
@@ -206,12 +201,14 @@ impl Renderer {
             sample_mask: !0,
             alpha_to_coverage_enabled: false,
         });
+
+        let window_size = window.inner_size();
     
         let swap_chain_desc = wgpu::SwapChainDescriptor {
             usage: wgpu::TextureUsage::OUTPUT_ATTACHMENT,
             format: wgpu::TextureFormat::Bgra8Unorm,
-            width: size.width,
-            height: size.height,
+            width: window_size.width,
+            height: window_size.height,
             present_mode: wgpu::PresentMode::Fifo,
         };
     
@@ -223,7 +220,7 @@ impl Renderer {
             vertices: Vec::new(),
             indices: Vec::new(),
             glyph_sections: Vec::new(),
-            window_size: Vector2::new(size.width as f32, size.height as f32),
+            window_size: Vector2::new(window_size.width as f32, window_size.height as f32),
         };
 
         let renderer = Self {
