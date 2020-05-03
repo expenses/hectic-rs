@@ -137,12 +137,6 @@ impl Renderer {
             bind_group_layouts: &[&bind_group_layout],
         });
 
-        let blend_descriptor = wgpu::BlendDescriptor {
-            src_factor: wgpu::BlendFactor::SrcAlpha,
-            dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
-            operation: wgpu::BlendOperation::Add,
-        };
-    
         let pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             layout: &pipeline_layout,
             vertex_stage: wgpu::ProgrammableStageDescriptor {
@@ -163,8 +157,16 @@ impl Renderer {
             primitive_topology: wgpu::PrimitiveTopology::TriangleList,
             color_states: &[wgpu::ColorStateDescriptor {
                 format: wgpu::TextureFormat::Bgra8Unorm,
-                color_blend: blend_descriptor.clone(),
-                alpha_blend: blend_descriptor,
+                color_blend: wgpu::BlendDescriptor {
+                    src_factor: wgpu::BlendFactor::SrcAlpha,
+                    dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
+                    operation: wgpu::BlendOperation::Add,
+                },
+                alpha_blend: wgpu::BlendDescriptor {
+                    src_factor: wgpu::BlendFactor::SrcAlpha,
+                    dst_factor: wgpu::BlendFactor::DstAlpha,
+                    operation: wgpu::BlendOperation::Max,
+                },
                 write_mask: wgpu::ColorWrite::ALL,
             }],
             depth_stencil_state: None,
