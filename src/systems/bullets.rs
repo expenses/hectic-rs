@@ -96,7 +96,7 @@ impl<'a> System<'a> for Collisions {
                             updater.create_entity(&entities)
                                 .with(Position(hit_pos))
                                 .with(PowerOrb(value))
-                                .with(Movement::Falling { speed: 0.0, down: true })
+                                .with(Falling { speed: 0.0, down: true })
                                 .with(Image::from(image))
                                 .with(Hitbox(Vector2::new(50.0, 50.0)))
                                 .with(DieOffscreen)

@@ -43,7 +43,10 @@ async fn run() {
     let mut world = World::new();
     world.register::<components::Position>();
     world.register::<components::Image>();
-    world.register::<components::Movement>();
+    world.register::<components::Velocity>();
+    world.register::<components::Falling>();
+    world.register::<components::FollowCurve>();
+    world.register::<components::FiringMove>();
     world.register::<components::DieOffscreen>();
     world.register::<components::BackgroundLayer>();
     world.register::<components::Player>();
@@ -147,26 +150,11 @@ async fn run() {
         },
         Event::MainEventsCleared => {
             let mode: Mode = *world.fetch();
-            let game_time: GameTime = *world.fetch();
             match mode {
                 Mode::MainMenu { .. } | Mode::Stages { .. } | Mode::Controls { .. } | Mode::StageComplete { .. } | Mode::StageLost { .. } => menu_dispatcher.dispatch(&world),
-                Mode::Playing { state: PlayingState::Won { at: won_at }, stage, multiplayer } if won_at + 1.0 < game_time.total_time => {
-                    *world.fetch_mut() = Mode::StageComplete { stage, selected: 0, multiplayer };
-                },
-                Mode::Playing { state: PlayingState::Lost { at: lost_at }, .. } if lost_at + 1.0 < game_time.total_time => {
-                    *world.fetch_mut() = Mode::StageLost { selected: 0 };
-                }
                 Mode::Playing { .. } => playing_dispatcher.dispatch(&world),
                 Mode::Paused { .. } => paused_dispatcher.dispatch(&world),
                 Mode::Quit => *control_flow = ControlFlow::Exit,
-                Mode::StartStage { stage, multiplayer } => {
-                    match stage {
-                        Stage::One => stages::stage_one(&mut world, multiplayer),
-                        Stage::Two => stages::stage_two(&mut world, multiplayer),
-                    }
-
-                    *world.fetch_mut() = Mode::Playing { stage, state: PlayingState::Playing, multiplayer };
-                },
             }
             world.maintain();
             renderer.request_redraw();

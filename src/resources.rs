@@ -27,7 +27,6 @@ pub enum Mode {
     Controls { selected: usize },
     Quit,
     Stages { selected: usize, multiplayer: bool },
-    StartStage { stage: Stage, multiplayer: bool },
     StageLost { selected: usize },
 }
 

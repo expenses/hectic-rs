@@ -1,41 +1,54 @@
 use specs::prelude::*;
+use specs::world::LazyBuilder;
 use crate::{components::*, graphics, WIDTH, HEIGHT, ZERO, MIDDLE};
 use cgmath::Vector2;
 use rand::Rng;
 
-fn clear_world(world: &mut World) {
-    world.delete_all();
-    world.fetch_mut::<crate::resources::GameTime>().total_time = 0.0;
+struct EntityBuilder<'a> {
+    entities: &'a Entities<'a>,
+    updater: &'a LazyUpdate
 }
 
-pub fn stage_one(world: &mut World, multiplayer: bool) {
-    let mut rng = rand::thread_rng();
+impl EntityBuilder<'_> {
+    fn create_entity(&self) -> LazyBuilder<'_> {
+        self.updater.create_entity(self.entities)
+    } 
+}
 
-    clear_world(world);
-    create_background(world, graphics::Image::NightSky, ZERO, ZERO, 0);
-    create_background(world, graphics::Image::Clouds, ZERO, Vector2::new(0.0, 1.0), 1);
-    create_background(world, graphics::Image::Clouds, Vector2::new(0.0, 1920.0), Vector2::new(0.0, 1.0), 1);
-    create_title(world, "Stage\nOne");
-    create_players(world, multiplayer);
+fn clear(builder: &EntityBuilder) {
+    builder.entities.join().for_each(|entity| builder.entities.delete(entity).unwrap());
+}
+
+pub fn stage_one(entities: &Entities, updater: &LazyUpdate, multiplayer: bool, time: &mut f32) {
+    let mut rng = rand::thread_rng();
+    let builder = &EntityBuilder { entities, updater };
+
+    *time = 0.0;
+    clear(builder);
+    create_background(builder, graphics::Image::NightSky, ZERO, ZERO, 0);
+    create_background(builder, graphics::Image::Clouds, ZERO, Vector2::new(0.0, 1.0), 1);
+    create_background(builder, graphics::Image::Clouds, Vector2::new(0.0, 1920.0), Vector2::new(0.0, 1.0), 1);
+    create_title(builder, "Stage\nOne");
+    create_players(builder, multiplayer);
 
     for start in float_iter(1.0, 6.0, 0.25) {
-        bat_with_curve(world, Curve::horizontal(100.0, 300.0, true, 2.5), start);
-        bat_with_curve(world, Curve::horizontal(150.0, 350.0, true, 2.5), start);
+        bat_with_curve(builder, FollowCurve::horizontal(100.0, 300.0, true, 2.5), start);
+        bat_with_curve(builder, FollowCurve::horizontal(150.0, 350.0, true, 2.5), start);
     }
 
     for start in float_iter(3.0, 10.0, 0.25) {
-        bat_with_curve(world, Curve::horizontal(200.0, 400.0, false, 2.5), start);
-        bat_with_curve(world, Curve::horizontal(250.0, 450.0, false, 2.5), start);
+        bat_with_curve(builder, FollowCurve::horizontal(200.0, 400.0, false, 2.5), start);
+        bat_with_curve(builder, FollowCurve::horizontal(250.0, 450.0, false, 2.5), start);
     }
 
     for start in float_iter(12.0, 17.0, 0.25) {
-        bat_with_curve(world, Curve::vertical(0.25, 0.5, 2.5), start);
-        bat_with_curve(world, Curve::vertical(0.5, 0.75, 2.5), start);
-        bat_with_curve(world, Curve::vertical(0.75, 0.25, 2.5), start);
+        bat_with_curve(builder, FollowCurve::vertical(0.25, 0.5, 2.5), start);
+        bat_with_curve(builder, FollowCurve::vertical(0.5, 0.75, 2.5), start);
+        bat_with_curve(builder, FollowCurve::vertical(0.75, 0.25, 2.5), start);
     }
 
     for start in float_iter(15.0, 20.0, 0.5) {
-        bat_with_curve(world, Curve::horizontal(400.0, 600.0, true, 2.5), start)
+        bat_with_curve(builder, FollowCurve::horizontal(400.0, 600.0, true, 2.5), start)
     }
 
     let rock_bullet = BulletSetup { image: Image::from(graphics::Image::RockBullet), speed: 2.8, colour: None };
@@ -44,14 +57,14 @@ pub fn stage_one(world: &mut World, multiplayer: bool) {
         let start = 24.0;
 
         enemy(
-            world,
+            builder,
             Vector2::new(x * WIDTH, -50.0),
-            Movement::FiringMove { speed: 2.5, return_time: start + 10.0, stop_time: start + 1.0 },
             start,
             15,
             graphics::Image::Gargoyle,
             Vector2::new(45.0, 25.0),
         )
+            .with(FiringMove { speed: 2.5, return_time: start + 10.0, stop_time: start + 1.0 })
             .with(FiresBullets::AtPlayer {
                 num_bullets: 3,
                 spread: 1.0,
@@ -65,14 +78,14 @@ pub fn stage_one(world: &mut World, multiplayer: bool) {
         let start = 28.0;
 
         enemy(
-            world,
+            builder,
             Vector2::new(x * WIDTH, -50.0),
-            Movement::FiringMove { speed: 2.5, return_time: start + 10.0, stop_time: start + 1.0 },
             start,
             15,
             graphics::Image::Gargoyle,
             Vector2::new(45.0, 25.0),
         )
+            .with(FiringMove { speed: 2.5, return_time: start + 10.0, stop_time: start + 1.0 })
             .with(FiresBullets::AtPlayer {
                 num_bullets: 3,
                 spread: 1.0,
@@ -83,17 +96,17 @@ pub fn stage_one(world: &mut World, multiplayer: bool) {
     }
 
     for start in float_iter(25.0, 33.0, 0.25) {
-        bat_with_curve(world, Curve::circular(200.0, 1000.0, 2.5), start);
+        bat_with_curve(builder, FollowCurve::circular(200.0, 1000.0, 2.5), start);
     }
 
     for start in float_iter(35.0, 50.0, 0.25) {
-        hell_bat(world, start, Vector2::new(rng.gen_range(0.0, WIDTH), -50.0));
+        hell_bat(builder, start, Vector2::new(rng.gen_range(0.0, WIDTH), -50.0));
     }
 
     for start in float_iter(45.0, 50.0, 1.0) {
         enemy_with_curve(
-            world,
-            Curve::horizontal(100.0, 300.0, true, 2.5),
+            builder,
+            FollowCurve::horizontal(100.0, 300.0, true, 2.5),
             start,
             15,
             graphics::Image::Gargoyle,
@@ -108,11 +121,11 @@ pub fn stage_one(world: &mut World, multiplayer: bool) {
             .build();
     }
 
-    boss_one(world, 55.0);
+    boss_one(builder, 55.0);
 }
 
-fn hell_bat(world: &mut World, start: f32, position: Vector2<f32>) {
-    world.create_entity()
+fn hell_bat(builder: &EntityBuilder, start: f32, position: Vector2<f32>) {
+    builder.create_entity()
         .with(Position(position))
         .with(FrozenUntil(start))
         .with(DieOffscreen)
@@ -124,13 +137,12 @@ fn hell_bat(world: &mut World, start: f32, position: Vector2<f32>) {
         .build();
 }
 
-fn bat_with_curve(world: &mut World, curve: Curve, start: f32) {
-    enemy_with_curve(world, curve, start, 4, graphics::Image::Bat, Vector2::new(25.0, 20.0)).build();
+fn bat_with_curve(builder: &EntityBuilder, curve: FollowCurve, start: f32) {
+    enemy_with_curve(builder, curve, start, 4, graphics::Image::Bat, Vector2::new(25.0, 20.0)).build();
 }
 
-fn enemy(world: &mut World, position: Vector2<f32>, movement: Movement, start: f32, health: u32, image: graphics::Image, hitbox: Vector2<f32>) -> EntityBuilder {
-    world.create_entity()
-        .with(movement)
+fn enemy<'a>(builder: &'a EntityBuilder, position: Vector2<f32>, start: f32, health: u32, image: graphics::Image, hitbox: Vector2<f32>) -> LazyBuilder<'a> {
+    builder.create_entity()
         .with(Position(position))
         .with(FrozenUntil(start))
         .with(DieOffscreen)
@@ -140,16 +152,15 @@ fn enemy(world: &mut World, position: Vector2<f32>, movement: Movement, start: f
         .with(Hitbox(hitbox))
 }
 
-fn enemy_with_curve(world: &mut World, curve: Curve, start: f32, health: u32, image: graphics::Image, hitbox: Vector2<f32>) -> EntityBuilder {
+fn enemy_with_curve<'a>(builder: &'a EntityBuilder, curve: FollowCurve, start: f32, health: u32, image: graphics::Image, hitbox: Vector2<f32>) -> LazyBuilder<'a> {
     enemy(
-        world,
-        curve.b,
-        Movement::FollowCurve(curve),
+        builder,
+        curve.start(),
         start,
         health,
         image,
-        hitbox
-    )
+        hitbox,
+    ).with(curve)
 }
 
 fn float_iter(start: f32, end: f32, step: f32) -> impl Iterator<Item = f32> {
@@ -162,18 +173,18 @@ fn float_iter(start: f32, end: f32, step: f32) -> impl Iterator<Item = f32> {
         .take_while(move |item| *item < end)
 }
 
-fn create_players(world: &mut World, two_players: bool) {
+fn create_players(builder: &EntityBuilder, two_players: bool) {
     if two_players {
         let offset = Vector2::new(20.0, 0.0);
-        create_player(world, Player::One, MIDDLE - offset);
-        create_player(world, Player::Two, MIDDLE + offset);
+        create_player(builder, Player::One, MIDDLE - offset);
+        create_player(builder, Player::Two, MIDDLE + offset);
     } else {
-        create_player(world, Player::Single, MIDDLE);
+        create_player(builder, Player::Single, MIDDLE);
     }
 }
 
-fn create_player(world: &mut World, player: Player, position: Vector2<f32>) {
-    world.create_entity()
+fn create_player(builder: &EntityBuilder, player: Player, position: Vector2<f32>) {
+    builder.create_entity()
             .with(Position(position))
             .with(Image::from(graphics::Image::Player))
             .with(player)
@@ -186,34 +197,36 @@ fn create_player(world: &mut World, player: Player, position: Vector2<f32>) {
             .build();
 }
 
-fn create_title(world: &mut World, text: &'static str) {
-    world.create_entity()
+fn create_title(builder: &EntityBuilder, text: &'static str) {
+    builder.create_entity()
         .with(Text::title(text))
         .with(Position(Vector2::new(WIDTH / 2.0, 40.0)))
-        .with(Movement::Falling { speed: 0.0, down: false })
+        .with(Falling { speed: 0.0, down: false })
         .build();
 }
 
-fn create_background(world: &mut World, image: graphics::Image, position: Vector2<f32>, movement: Vector2<f32>, depth: u32) {
-    world.create_entity()
+fn create_background(builder: &EntityBuilder, image: graphics::Image, position: Vector2<f32>, velocity: Vector2<f32>, depth: u32) {
+    builder.create_entity()
         .with(Position(MIDDLE + position))
         .with(Image::from(image))
-        .with(Movement::Linear(movement))
+        .with(Velocity(velocity))
         .with(BackgroundLayer { depth })
         .build();
 }
 
-pub fn stage_two(world: &mut World, multiplayer: bool) {
+pub fn stage_two(entities: &Entities, updater: &LazyUpdate, multiplayer: bool, time: &mut f32) {
     let mut rng = rand::thread_rng();
+    let builder = &EntityBuilder { entities, updater };
 
-    clear_world(world);
-    create_background(world, graphics::Image::Graveyard, ZERO, Vector2::new(0.0, 0.5), 0);
-    create_background(world, graphics::Image::Graveyard, Vector2::new(0.0, 1440.0), Vector2::new(0.0, 0.5), 0);
-    create_background(world, graphics::Image::Fog, ZERO, Vector2::new(0.0, 0.5), 1);
-    create_background(world, graphics::Image::Fog, Vector2::new(0.0, 1920.0), Vector2::new(0.0, 0.5), 1);
-    create_background(world, graphics::Image::Darkness, ZERO, ZERO, 2);
-    create_title(world, "Stage\nTwo");
-    create_players(world, multiplayer);
+    *time = 0.0;
+    clear(builder);
+    create_background(builder, graphics::Image::Graveyard, ZERO, Vector2::new(0.0, 0.5), 0);
+    create_background(builder, graphics::Image::Graveyard, Vector2::new(0.0, 1440.0), Vector2::new(0.0, 0.5), 0);
+    create_background(builder, graphics::Image::Fog, ZERO, Vector2::new(0.0, 0.5), 1);
+    create_background(builder, graphics::Image::Fog, Vector2::new(0.0, 1920.0), Vector2::new(0.0, 0.5), 1);
+    create_background(builder, graphics::Image::Darkness, ZERO, ZERO, 2);
+    create_title(builder, "Stage\nTwo");
+    create_players(builder, multiplayer);
 
     let spectre_speed = 10.0 / 3.0;
 
@@ -225,8 +238,8 @@ pub fn stage_two(world: &mut World, multiplayer: bool) {
         };
 
         enemy_with_curve(
-            world,
-            Curve::horizontal(rng.gen_range(0.0, HEIGHT / 2.0), rng.gen_range(0.0, HEIGHT / 2.0), true, spectre_speed),
+            builder,
+            FollowCurve::horizontal(rng.gen_range(0.0, HEIGHT / 2.0), rng.gen_range(0.0, HEIGHT / 2.0), true, spectre_speed),
             start, 8, graphics::Image::Spectre, Vector2::new(30.0, 30.0),
         )
             .with(FiresBullets::AtPlayer { num_bullets: 1, spread: 0.0, cooldown: Cooldown::ready_at(1.0, rng.gen_range(start, start + 1.0)), setup })
@@ -234,20 +247,20 @@ pub fn stage_two(world: &mut World, multiplayer: bool) {
     }
 
     for start in float_iter(25.0, 45.0, 0.5) {
-        flying_skull(world, start, Vector2::new(rng.gen_range(0.0, WIDTH), -25.0));
+        flying_skull(builder, start, Vector2::new(rng.gen_range(0.0, WIDTH), -25.0));
         
         if start >= 30.0 {
-            flying_skull(world, start, Vector2::new(rng.gen_range(0.0, WIDTH), -25.0));
-            flying_skull(world, start, Vector2::new(-25.0, rng.gen_range(0.0, HEIGHT / 2.0)));
-            flying_skull(world, start, Vector2::new(WIDTH + 25.0, rng.gen_range(0.0, HEIGHT / 2.0)));
+            flying_skull(builder, start, Vector2::new(rng.gen_range(0.0, WIDTH), -25.0));
+            flying_skull(builder, start, Vector2::new(-25.0, rng.gen_range(0.0, HEIGHT / 2.0)));
+            flying_skull(builder, start, Vector2::new(WIDTH + 25.0, rng.gen_range(0.0, HEIGHT / 2.0)));
         }
     }
 
-    boss_two(world, 55.0);
+    boss_two(builder, 55.0);
 }
 
-fn flying_skull(world: &mut World, start: f32, position: Vector2<f32>) {
-    world.create_entity()
+fn flying_skull(builder: &EntityBuilder, start: f32, position: Vector2<f32>) {
+    builder.create_entity()
         .with(Position(position))
         .with(FrozenUntil(start))
         .with(DieOffscreen)
@@ -259,7 +272,7 @@ fn flying_skull(world: &mut World, start: f32, position: Vector2<f32>) {
         .build();
 }
 
-fn boss_one(world: &mut World, start: f32) {
+fn boss_one(builder: &EntityBuilder, start: f32) {
     let speed = 10.0 / 3.0;
     let orange_bullet = BulletSetup {
         image: Image::from(graphics::Image::ColouredBullet),
@@ -267,7 +280,7 @@ fn boss_one(world: &mut World, start: f32) {
         colour: Some(ColourBullets::Orange)
     };
 
-    world.create_entity()
+    builder.create_entity()
         .with(Position(Vector2::new(WIDTH / 2.0, -50.0)))
         .with(FrozenUntil(start))
         .with(DieOffscreen)
@@ -311,7 +324,7 @@ fn boss_one(world: &mut World, start: f32) {
         .build();
 }
 
-fn boss_two(world: &mut World, start: f32) {
+fn boss_two(builder: &EntityBuilder, start: f32) {
     let speed = 10.0 / 3.0;
     let dark_bullet = BulletSetup {
         image: Image::from(graphics::Image::DarkBullet),
@@ -327,7 +340,7 @@ fn boss_two(world: &mut World, start: f32) {
     let pi = std::f32::consts::PI;
 
 
-    world.create_entity()
+    builder.create_entity()
         .with(Position(Vector2::new(WIDTH / 2.0, -50.0)))
         .with(FrozenUntil(start))
         .with(DieOffscreen)

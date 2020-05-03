@@ -40,13 +40,14 @@ pub struct BackgroundLayer { pub depth: u32 }
 #[derive(Component)]
 pub struct Position(pub Vector2<f32>);
 
-#[derive(Component, Clone)]
-pub enum Movement {
-    Linear(Vector2<f32>),
-    Falling { speed: f32, down: bool },
-    FollowCurve(Curve),
-    FiringMove { speed: f32, return_time: f32, stop_time: f32 }
-}
+#[derive(Component)]
+pub struct Velocity(pub Vector2<f32>);
+
+#[derive(Component)]
+pub struct Falling { pub speed: f32, pub down: bool }
+
+#[derive(Component)]
+pub struct FiringMove { pub speed: f32, pub return_time: f32, pub stop_time: f32 }
 
 #[derive(Component)]
 pub struct DieOffscreen;
@@ -262,17 +263,21 @@ impl Invulnerability {
     }
 }
 
-#[derive(Clone)]
-pub struct Curve {
-    pub a: Vector2<f32>,
-    pub b: Vector2<f32>,
-    pub c: Vector2<f32>,
-    pub d: Vector2<f32>,
-    pub time: f32,
-    pub speed: f32,
+#[derive(Component)]
+pub struct FollowCurve {
+    a: Vector2<f32>,
+    b: Vector2<f32>,
+    c: Vector2<f32>,
+    d: Vector2<f32>,
+    time: f32,
+    speed: f32,
 }
 
-impl Curve {
+impl FollowCurve {
+    pub fn start(&self) -> Vector2<f32> {
+        self.b
+    }
+
     fn point(&self, time: f32) -> Vector2<f32> {
         Vector2::new(
             curve_point_scalar(self.a.x, self.b.x, self.c.x, self.d.x, time),

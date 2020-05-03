@@ -21,39 +21,45 @@ pub use bullets::*;
 pub struct MoveEntities;
 
 impl<'a> System<'a> for MoveEntities {
-    type SystemData = (WriteStorage<'a, Position>, WriteStorage<'a, Movement>, ReadStorage<'a, FrozenUntil>, ReadStorage<'a, MoveTowards>, Read<'a, GameTime>);
+    type SystemData = (
+        WriteStorage<'a, Position>, ReadStorage<'a, FrozenUntil>, Read<'a, GameTime>,
+        WriteStorage<'a, FiringMove>, ReadStorage<'a, MoveTowards>, ReadStorage<'a, Velocity>, WriteStorage<'a, Falling>, WriteStorage<'a, FollowCurve>,
+    );
 
-    fn run(&mut self, (mut pos, mut mov, frozen, move_towards, game_time): Self::SystemData) {
-        for (mut pos, mov, _) in (&mut pos, &mut mov, !&frozen).join() {
-            match mov {
-                Movement::Linear(vector) => pos.0 += *vector,
-                Movement::Falling { speed, down } => {
-                    if *down {
-                        pos.0.y += *speed;
-                    } else {
-                        pos.0.y -= *speed;
-                    }
+    fn run(&mut self, (mut pos, frozen, game_time, firing_move, move_towards, vel, mut falling, mut curve): Self::SystemData) {
+        for (mut pos, vel, falling, curve, move_towards, firing_move, _) in (&mut pos, vel.maybe(), (&mut falling).maybe(), (&mut curve).maybe(), move_towards.maybe(), firing_move.maybe(), !&frozen).join() {
+            if let Some(vel) = vel {
+                pos.0 += vel.0;
+            }
 
-                    *speed += 0.0625;
-                },
-                Movement::FollowCurve(curve) => {
-                    pos.0 = curve.step(pos.0);
-                },
-                Movement::FiringMove { speed, return_time, stop_time } => {
-                    if *return_time <= game_time.total_time {
-                        pos.0.y -= *speed;
-                    } else if *stop_time > game_time.total_time {
-                        pos.0.y += *speed;
-                    }
+            if let Some(Falling { speed, down }) = falling {
+                if *down {
+                    pos.0.y += *speed;
+                } else {
+                    pos.0.y -= *speed;
+                }
+    
+                *speed += 0.0625;
+            }
+
+            if let Some(curve) = curve {
+                pos.0 = curve.step(pos.0);
+            }
+
+            if let Some(move_towards) = move_towards {
+                if pos.0.distance2(move_towards.position) > move_towards.speed.powi(2) {
+                    pos.0 += (move_towards.position - pos.0).normalize_to(move_towards.speed);
+                } else {
+                    pos.0 = move_towards.position;
                 }
             }
-        }
 
-        for (mut pos, move_towards, _) in (&mut pos, &move_towards, !&frozen).join() {
-            if pos.0.distance2(move_towards.position) > move_towards.speed.powi(2) {
-                pos.0 += (move_towards.position - pos.0).normalize_to(move_towards.speed);
-            } else {
-                pos.0 = move_towards.position;
+            if let Some(firing_move) = firing_move {
+                if firing_move.return_time <= game_time.total_time {
+                    pos.0.y -= firing_move.speed;
+                } else if firing_move.stop_time > game_time.total_time {
+                    pos.0.y += firing_move.speed;
+                }
             }
         }
     }
@@ -123,9 +129,9 @@ impl<'a> System<'a> for TogglePaused {
 pub struct ControlMenu;
 
 impl<'a> System<'a> for ControlMenu {
-    type SystemData = (Write<'a, ControlsState>, Write<'a, Mode>);
+    type SystemData = (Write<'a, ControlsState>, Write<'a, Mode>, Entities<'a>, Read<'a, LazyUpdate>, Write<'a, GameTime>);
 
-    fn run(&mut self, (mut ctrl_state, mut mode): Self::SystemData) {
+    fn run(&mut self, (mut ctrl_state, mut mode, entities, updater, mut time): Self::SystemData) {
         if let Some(mut menu) = mode.as_menu(&ctrl_state) {
             let player_ctrl_state = ctrl_state.get_mut(Player::Single);
 
@@ -161,8 +167,14 @@ impl<'a> System<'a> for ControlMenu {
                     },
                     Mode::Stages { selected, multiplayer } => {
                         *mode = match selected {
-                            0 => Mode::StartStage { stage: Stage::One, multiplayer },
-                            1 => Mode::StartStage { stage: Stage::Two, multiplayer },
+                            0 => {
+                                crate::stages::stage_one(&entities, &updater, multiplayer, &mut time.total_time);
+                                Mode::Playing { stage: Stage::One, multiplayer, state: PlayingState::Playing }
+                            },
+                            1 => {
+                                crate::stages::stage_two(&entities, &updater, multiplayer, &mut time.total_time);
+                                Mode::Playing { stage: Stage::Two, multiplayer, state: PlayingState::Playing }
+                            },
                             2 => Mode::Stages { selected, multiplayer: !multiplayer },
                             3 => Mode::MainMenu { selected: 0 },
                             _ => unreachable!()
@@ -176,7 +188,10 @@ impl<'a> System<'a> for ControlMenu {
                     Mode::StageComplete { stage, selected, multiplayer } => {
                         *mode = match selected {
                             0 => match stage {
-                                Stage::One => Mode::StartStage { stage: Stage::Two, multiplayer },
+                                Stage::One => {
+                                    crate::stages::stage_one(&entities, &updater, multiplayer, &mut time.total_time);
+                                    Mode::Playing { stage: Stage::Two, multiplayer, state: PlayingState::Playing }
+                                },
                                 Stage::Two => Mode::StageComplete { stage, selected, multiplayer }
                             },
                             1 => Mode::MainMenu { selected: 0 },
@@ -184,7 +199,7 @@ impl<'a> System<'a> for ControlMenu {
                         }
                     },
                     Mode::StageLost { .. } => *mode = Mode::MainMenu { selected: 0 },
-                    Mode::Playing { .. } | Mode::StartStage { .. } | Mode::Quit => {}
+                    Mode::Playing { .. } | Mode::Quit => {}
                 }
 
                 player_ctrl_state.fire.pressed = false;
@@ -262,11 +277,11 @@ impl<'a> System<'a> for StartTowardsPlayer {
     type SystemData = (
         Entities<'a>,
         ReadStorage<'a, FrozenUntil>, ReadStorage<'a, Position>,
-        WriteStorage<'a, TargetPlayer>, WriteStorage<'a, Movement>,
+        WriteStorage<'a, TargetPlayer>, WriteStorage<'a, Velocity>,
         Read<'a, PlayerPositions>,
     );
 
-    fn run(&mut self, (entities, frozen, pos, mut target, mut movement, player_positions): Self::SystemData) {
+    fn run(&mut self, (entities, frozen, pos, mut target, mut vel, player_positions): Self::SystemData) {
         let mut rng = rand::thread_rng();
         
         for (entity, target, pos, _) in (&entities, target.entries(), &pos, !&frozen).join() {
@@ -277,7 +292,7 @@ impl<'a> System<'a> for StartTowardsPlayer {
                 let player = player_positions.random(&mut rng);
                 let rotation = (player.y - pos.0.y).atan2(player.x - pos.0.x);
 
-                movement.insert(entity, Movement::Linear(Vector2::new(rotation.cos() * speed, rotation.sin() * speed)))
+                vel.insert(entity, Velocity(Vector2::new(rotation.cos() * speed, rotation.sin() * speed)))
                     .unwrap();
             }
         }
@@ -387,7 +402,7 @@ fn build_bullet(entities: &Entities, updater: &LazyUpdate, pos: Vector2<f32>, im
     }
         .with(Position(pos))
         .with(image)
-        .with(Movement::Linear(velocity))
+        .with(Velocity(velocity))
         .with(DieOffscreen)
         .with(Hitbox(Vector2::new(0.0, 0.0)))
         .with(Health(1));
@@ -407,19 +422,27 @@ impl<'a> System<'a> for FinishStage {
         ReadStorage<'a, Position>, ReadStorage<'a, Enemy>, ReadStorage<'a, Player>, ReadStorage<'a, Boss>);
 
     fn run(&mut self, (entities, updater, mut mode, time, pos, enemy, player, boss): Self::SystemData) {
-        if let Mode::Playing { ref mut state, .. } = *mode {
-            if let PlayingState::Playing = *state {
-                if (&player).join().count() == 0 {
-                    *state = PlayingState::Lost { at: time.total_time };
-                }
-
-                if (&boss).join().count() == 0 {
-                    for (entity, pos, _) in (&entities, &pos, &enemy).join() {
-                        build_explosion(&updater, &entities, pos.0, time.total_time);
-                        entities.delete(entity).unwrap();
+        if let Mode::Playing { ref mut state, stage, multiplayer } = *mode {
+            match state {
+                PlayingState::Playing => {
+                    if (&player).join().count() == 0 {
+                        *state = PlayingState::Lost { at: time.total_time };
                     }
-
-                    *state = PlayingState::Won { at: time.total_time };
+    
+                    if (&boss).join().count() == 0 {
+                        for (entity, pos, _) in (&entities, &pos, &enemy).join() {
+                            build_explosion(&updater, &entities, pos.0, time.total_time);
+                            entities.delete(entity).unwrap();
+                        }
+    
+                        *state = PlayingState::Won { at: time.total_time };
+                    }
+                }
+                PlayingState::Won { at: won_at } => if *won_at + 1.0 < time.total_time {
+                    *mode = Mode::StageComplete { stage, selected: 0, multiplayer }
+                }
+                PlayingState::Lost { at: lost_at } => if *lost_at + 1.0 < time.total_time {
+                    *mode = Mode::StageLost { selected: 0 }
                 }
             }
         }
