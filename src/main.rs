@@ -1,5 +1,5 @@
 use winit::{
-    event::{ElementState, Event, KeyboardInput, VirtualKeyCode, WindowEvent},
+    event::{ElementState, Event, KeyboardInput, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
 };
 use cgmath::Vector2;
@@ -15,6 +15,10 @@ mod renderer;
 use resources::*;
 
 use std::alloc::System;
+
+use std::io::Cursor;
+use rodio::{Source, Decoder};
+use rodio::source::{Buffered, SamplesConverter};
 
 #[global_allocator]
 static GLOBAL: System = System;
@@ -35,6 +39,13 @@ async fn run() {
     }
     #[cfg(feature = "native")]
     env_logger::init();
+
+    let (_stream, stream_handle) = rodio::OutputStream::try_default().unwrap();
+
+    let audio = Audio {
+        hit: rodio::Decoder::new(std::io::Cursor::new(&include_bytes!("sound.wav")[..])).unwrap().convert_samples().buffered(),
+        stream_handle
+    };
 
     let event_loop = EventLoop::new();
 
@@ -75,6 +86,7 @@ async fn run() {
     world.insert(GameTime::default());
     world.insert(PlayerPositions::default());
     world.insert(Mode::default());
+    world.insert(audio);
 
     let db = DispatcherBuilder::new()
         .with(systems::FinishStage, "FinishStage", &[])
@@ -166,3 +178,22 @@ const HEIGHT: f32 = 640.0;
 const DIMENSIONS: Vector2<f32> = Vector2::new(WIDTH, HEIGHT);
 const ZERO: Vector2<f32> = Vector2::new(0.0, 0.0);
 const MIDDLE: Vector2<f32> = Vector2::new(WIDTH / 2.0, HEIGHT / 2.0);
+
+type Sound = Buffered<SamplesConverter<Decoder<Cursor<&'static [u8]>>, f32>>;
+
+pub struct Audio {
+    stream_handle: rodio::OutputStreamHandle,
+    hit: Sound,
+}
+
+impl Audio {
+    pub fn play(&self) {
+        self.stream_handle.play_raw(self.hit.clone()).unwrap();
+    }
+}
+
+impl Default for Audio {
+    fn default() -> Self {
+        unreachable!()
+    }
+}

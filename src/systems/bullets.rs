@@ -68,10 +68,10 @@ impl<'a> System<'a> for Collisions {
     type SystemData = (
         Entities<'a>, Read<'a, LazyUpdate>, Read<'a, GameTime>,
         ReadStorage<'a, Position>, ReadStorage<'a, Friendly>, ReadStorage<'a, Enemy>, ReadStorage<'a, Hitbox>, ReadStorage<'a, FrozenUntil>,
-        WriteStorage<'a, Health>, WriteStorage<'a, Invulnerability>,
+        WriteStorage<'a, Health>, WriteStorage<'a, Invulnerability>, Read<'a, crate::Audio>,
     );
 
-    fn run(&mut self, (entities, updater, time, pos, friendly, enemy, hitbox, frozen, mut health, mut invul): Self::SystemData) {
+    fn run(&mut self, (entities, updater, time, pos, friendly, enemy, hitbox, frozen, mut health, mut invul, audio): Self::SystemData) {
         let mut rng = rand::thread_rng();
         
         (&entities, &pos, &hitbox, &friendly).join()
@@ -90,6 +90,8 @@ impl<'a> System<'a> for Collisions {
                         hit_pos.y += rng.gen_range(-5.0, 5.0);
             
                         build_explosion(&updater, &entities, hit_pos, time.total_time);
+
+                        audio.play();
 
                         if enemy_dead && rng.gen_range(0.0, 1.0) > 0.6 {
                             let (value, image) = if rng.gen_range(0.0, 1.0) > 0.9 { (5, GraphicsImage::BigOrb) } else { (1, GraphicsImage::Orb) };
