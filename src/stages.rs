@@ -25,7 +25,7 @@ pub fn stage_one(entities: &Entities, updater: &LazyUpdate, multiplayer: bool, t
 
     *time = 0.0;
     clear(builder);
-    create_background(builder, graphics::Image::NightSky, ZERO, ZERO, 0);
+    create_background(builder, graphics::Image::Bg, ZERO, ZERO, 0);
     create_background(builder, graphics::Image::Clouds, ZERO, Vector2::new(0.0, 1.0), 1);
     create_background(builder, graphics::Image::Clouds, Vector2::new(0.0, 1920.0), Vector2::new(0.0, 1.0), 1);
     create_title(builder, "Stage\nOne");

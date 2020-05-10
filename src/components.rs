@@ -49,10 +49,12 @@ pub struct Falling { pub speed: f32, pub down: bool }
 #[derive(Component)]
 pub struct FiringMove { pub speed: f32, pub return_time: f32, pub stop_time: f32 }
 
-#[derive(Component)]
+#[derive(Component, Default)]
+#[storage(NullStorage)]
 pub struct DieOffscreen;
 
-#[derive(Component)]
+#[derive(Component, Default)]
+#[storage(NullStorage)]
 pub struct BeenOnscreen;
 
 #[derive(Component)]
@@ -61,7 +63,8 @@ pub struct FrozenUntil(pub f32);
 #[derive(Component)]
 pub struct Circle { pub radius: f32 } 
 
-#[derive(Component)]
+#[derive(Component, Default)]
+#[storage(NullStorage)]
 pub struct CollidesWithBomb;
 
 #[derive(Component)]
@@ -198,10 +201,12 @@ fn curve_point_scalar(a: f32, b: f32, c: f32, d: f32, t: f32) -> f32 {
     d * (ttt*cb[0][3] + tt*cb[1][3] + t*cb[2][3] + cb[3][3])
 }
 
-#[derive(Component)]
+#[derive(Component, Default)]
+#[storage(NullStorage)]
 pub struct Friendly;
 
-#[derive(Component)]
+#[derive(Component, Default)]
+#[storage(NullStorage)]
 pub struct Enemy;
 
 #[derive(Component)]
