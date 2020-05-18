@@ -272,8 +272,8 @@ impl Renderer {
                 rpass.set_pipeline(&self.pipeline);
                 rpass.set_bind_group(0, &self.bind_group, &[]);
 
-                rpass.set_index_buffer(indices, 0, 0);
-                rpass.set_vertex_buffer(0, vertices, 0, 0);
+                rpass.set_index_buffer(indices.slice(0 .. 0));
+                rpass.set_vertex_buffer(0, vertices.slice(0 .. 0));
                 rpass.draw_indexed(0 .. renderer.indices.len() as u32, 0, 0 .. 1);
             }
         }
