@@ -57,12 +57,13 @@ impl Renderer {
         .await
         .unwrap();
     
-        let (device, queue) = adapter.request_device(&wgpu::DeviceDescriptor {
-            extensions: wgpu::Extensions {
-                anisotropic_filtering: false,
+        let (device, queue) = adapter.request_device(
+            &wgpu::DeviceDescriptor {
+                extensions: wgpu::Extensions::empty(),
+                limits: wgpu::Limits::default(),
             },
-            limits: wgpu::Limits::default(),
-        }, Some(&std::path::Path::new("trace"))).await.unwrap();
+            None
+        ).await.unwrap();
 
         let vs = include_bytes!("shader.vert.spv");
         let vs_module =
@@ -82,8 +83,7 @@ impl Renderer {
             .texture_filter_method(wgpu::FilterMode::Nearest)
             .build(&device, wgpu::TextureFormat::Bgra8Unorm);
 
-        let mut init_encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("Hectic init CommandEncoder") });
-        let packed_texture = crate::graphics::load_packed(&device, &mut init_encoder);
+        let packed_texture = crate::graphics::load_packed(&device, &queue);
         let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
             address_mode_u: wgpu::AddressMode::Repeat,
             address_mode_v: wgpu::AddressMode::Repeat,
@@ -93,7 +93,8 @@ impl Renderer {
             mipmap_filter: wgpu::FilterMode::Nearest,
             lod_min_clamp: 0.0,
             lod_max_clamp: 0.0,
-            compare: wgpu::CompareFunction::Undefined,
+            compare: None,
+            anisotropy_clamp: None,
             label: Some("Hectic Sampler")
         });
 
@@ -195,8 +196,6 @@ impl Renderer {
     
         let swap_chain = device.create_swap_chain(&surface, &swap_chain_desc);
 
-        queue.submit(Some(init_encoder.finish()));
-
         let buffer_renderer = BufferRenderer {
             vertices: Vec::new(),
             indices: Vec::new(),
@@ -230,12 +229,12 @@ impl Renderer {
         let offset = renderer.centering_offset() / 2.0;
         let dimensions = renderer.dimensions();
 
-        let output = self.swap_chain.get_next_texture().unwrap();
+        let frame = self.swap_chain.get_next_frame().unwrap();
         let mut encoder = self.device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("Hectic CommandEncoder") });
         {
             let mut rpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 color_attachments: &[wgpu::RenderPassColorAttachmentDescriptor {
-                    attachment: &output.view,
+                    attachment: &frame.output.view,
                     resolve_target: None,
                     load_op: wgpu::LoadOp::Clear,
                     store_op: wgpu::StoreOp::Store,
@@ -251,8 +250,8 @@ impl Renderer {
                 rpass.set_pipeline(&self.pipeline);
                 rpass.set_bind_group(0, &self.bind_group, &[]);
 
-                rpass.set_index_buffer(indices.slice(0 .. 0));
-                rpass.set_vertex_buffer(0, vertices.slice(0 .. 0));
+                rpass.set_index_buffer(indices.slice(..));
+                rpass.set_vertex_buffer(0, vertices.slice(..));
                 rpass.draw_indexed(0 .. renderer.indices.len() as u32, 0, 0 .. 1);
             }
         }
@@ -275,7 +274,7 @@ impl Renderer {
         self.glyph_brush.draw_queued_with_transform_and_scissoring(
             &self.device,
             &mut encoder,
-            &output.view,
+            &frame.output.view,
             orthographic_projection(renderer.window_size.x, renderer.window_size.y),
             wgpu_glyph::Region { x: offset.x as u32, y: offset.y as u32, width: dimensions.x as u32, height: dimensions.y as u32 },
         ).unwrap();
@@ -283,7 +282,7 @@ impl Renderer {
         self.glyph_brush.draw_queued(
             &self.device,
             &mut encoder,
-            &output.view,
+            &frame.output.view,
             self.swap_chain_desc.width,
             self.swap_chain_desc.height,
         ).unwrap();
