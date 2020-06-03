@@ -319,7 +319,7 @@ fn create_bind_group(device: &wgpu::Device, layout: &wgpu::BindGroupLayout, text
             },
             wgpu::Binding {
                 binding: 2,
-                resource: wgpu::BindingResource::Buffer(buffer.slice(..))
+                resource: wgpu::BindingResource::Buffer(buffer.slice(0 .. std::mem::size_of::<Uniforms>() as u64))
             }
         ],
         label: Some("Hectic BindGroup"),
