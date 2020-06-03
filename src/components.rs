@@ -41,6 +41,9 @@ pub struct BackgroundLayer { pub depth: u32 }
 pub struct Position(pub Vector2<f32>);
 
 #[derive(Component)]
+pub struct Rotation(pub f32);
+
+#[derive(Component)]
 pub struct Velocity(pub Vector2<f32>);
 
 #[derive(Component)]

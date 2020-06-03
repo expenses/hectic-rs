@@ -23,19 +23,19 @@ pub struct RenderSprite { sorted_bgs: Vec<(Vector2<f32>, Image, u32)> }
 impl<'a> System<'a> for RenderSprite {
     type SystemData = (
         ReadStorage<'a, Position>, ReadStorage<'a, Image>, ReadStorage<'a, Invulnerability>, ReadStorage<'a, FrozenUntil>,
-        ReadStorage<'a, BackgroundLayer>, ReadStorage<'a, ColourOverlay>,
+        ReadStorage<'a, BackgroundLayer>, ReadStorage<'a, ColourOverlay>, ReadStorage<'a, Rotation>,
         Read<'a, GameTime>, Write<'a, Renderer>
     );
 
-    fn run(&mut self, (pos, image, invul, frozen, bg, overlay, time, mut renderer): Self::SystemData) {
+    fn run(&mut self, (pos, image, invul, frozen, bg, overlay, rot, time, mut renderer): Self::SystemData) {
         self.sorted_bgs.extend((&pos, &image, &bg).join().map(|(pos, image, bg)| (pos.0, *image, bg.depth)));
         self.sorted_bgs.sort_unstable_by_key(|&(_, _, depth)| depth);
 
         for (pos, image, _) in self.sorted_bgs.drain(..) {
-            renderer.render_sprite(image, pos, [0.0; 4]);
+            renderer.render_sprite(image, pos, 0.0, [0.0; 4]);
         }
 
-        for (pos, image, invul, overlay, _, _) in (&pos, &image, invul.maybe(), overlay.maybe(), !&frozen, !&bg).join() {
+        for (pos, image, invul, overlay, rotation, _, _) in (&pos, &image, invul.maybe(), overlay.maybe(), rot.maybe(), !&frozen, !&bg).join() {
             let overlay = overlay
                 .map(|overlay| overlay.0)
                 .unwrap_or_else(|| {
@@ -45,7 +45,9 @@ impl<'a> System<'a> for RenderSprite {
                         .unwrap_or([0.0; 4])
                 });
 
-            renderer.render_sprite(*image, pos.0, overlay);
+            let rotation = rotation.map(|rotation| rotation.0).unwrap_or(0.0);
+            
+            renderer.render_sprite(*image, pos.0, rotation, overlay);
         }
     }
 }
@@ -112,7 +114,7 @@ impl<'a> System<'a> for RenderUI {
                 layout: wgpu_glyph::Layout::default().v_align(wgpu_glyph::VerticalAlign::Center)
             }, Vector2::new(60.0, HEIGHT - 30.0), [1.0; 4]);
 
-            renderer.render_sprite(Image::from(GraphicsImage::Portrait), Vector2::new(30.0, HEIGHT - 30.0), [0.0; 4]);
+            renderer.render_sprite(Image::from(GraphicsImage::Portrait), Vector2::new(30.0, HEIGHT - 30.0), 0.0, [0.0; 4]);
 
             let perc = bar.perc();
             let missing = (PADDED_MAX_BAR_HEIGHT - (perc * PADDED_MAX_BAR_HEIGHT)) / 2.0;
@@ -128,7 +130,7 @@ impl<'a> System<'a> for RenderUI {
                 layout: wgpu_glyph::Layout::default().v_align(wgpu_glyph::VerticalAlign::Center).h_align(wgpu_glyph::HorizontalAlign::Right)
             }, Vector2::new(WIDTH - 60.0, HEIGHT - 30.0), [1.0; 4]);
 
-            renderer.render_sprite(Image::from(GraphicsImage::Portrait), Vector2::new(WIDTH - 30.0, HEIGHT - 30.0), [0.0; 4]);
+            renderer.render_sprite(Image::from(GraphicsImage::Portrait), Vector2::new(WIDTH - 30.0, HEIGHT - 30.0), 0.0, [0.0; 4]);
 
             let perc = bar.perc();
             let missing = (PADDED_MAX_BAR_HEIGHT - (perc * PADDED_MAX_BAR_HEIGHT)) / 2.0;
@@ -141,7 +143,7 @@ impl<'a> System<'a> for RenderUI {
 
         for (health, boss, _) in (&health, &boss, !&frozen).join() {
             let width = (WIDTH - 20.0) * health.0 as f32 / boss.max_health as f32;
-            renderer.render_sprite_with_dimensions(Image::from(GraphicsImage::BossHealthBar), Vector2::new(WIDTH / 2.0, offset), Vector2::new(width, 10.0), [0.0; 4]);
+            renderer.render_sprite_with_dimensions(Image::from(GraphicsImage::BossHealthBar), Vector2::new(WIDTH / 2.0, offset), Vector2::new(width, 10.0), 0.0, [0.0; 4]);
             offset += 15.0
         }
     }

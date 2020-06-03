@@ -1,6 +1,6 @@
 use winit::{
     event_loop::EventLoop,
-    window::{Window, Fullscreen},
+    window::Window,
 };
 
 use cgmath::*;
@@ -17,14 +17,19 @@ pub struct Renderer {
     surface: wgpu::Surface,
     bind_group: wgpu::BindGroup,
     glyph_brush: wgpu_glyph::GlyphBrush<'static, ()>,
+    square_buffer: wgpu::Buffer,
+
+    bind_group_layout: wgpu::BindGroupLayout,
+    texture: wgpu::TextureView,
+    sampler: wgpu::Sampler,
 }
 
 impl Renderer {
     pub async fn new(event_loop: &EventLoop<()>) -> (Self, BufferRenderer) {
         let window = Window::new(event_loop).unwrap();
 
-        #[cfg(feature = "native")]
-        window.set_fullscreen(Some(Fullscreen::Borderless(event_loop.primary_monitor())));
+        //#[cfg(feature = "native")]
+        //window.set_fullscreen(Some(Fullscreen::Borderless(event_loop.primary_monitor())));
 
         #[cfg(feature = "wasm")]
         {
@@ -83,7 +88,7 @@ impl Renderer {
             .build(&device, wgpu::TextureFormat::Bgra8Unorm);
 
         let mut init_encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("Hectic init CommandEncoder") });
-        let packed_texture = crate::graphics::load_packed(&device, &mut init_encoder);
+        let texture = crate::graphics::load_packed(&device, &mut init_encoder);
         let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
             address_mode_u: wgpu::AddressMode::Repeat,
             address_mode_v: wgpu::AddressMode::Repeat,
@@ -114,24 +119,18 @@ impl Renderer {
                         visibility: wgpu::ShaderStage::FRAGMENT,
                         ty: wgpu::BindingType::Sampler { comparison: false },
                     },
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 2,
+                        visibility: wgpu::ShaderStage::VERTEX,
+                        ty: wgpu::BindingType::UniformBuffer { dynamic: false },
+                    }
                 ],
                 label: Some("Hectic BindGroupLayout"),
             });
 
-        let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            layout: &bind_group_layout,
-            bindings: &[
-                wgpu::Binding {
-                    binding: 0,
-                    resource: wgpu::BindingResource::TextureView(&packed_texture),
-                },
-                wgpu::Binding {
-                    binding: 1,
-                    resource: wgpu::BindingResource::Sampler(&sampler),
-                },
-            ],
-            label: Some("Hectic BindGroup"),
-        });
+        let window_size = window.inner_size();
+
+        let bind_group = create_bind_group(&device, &bind_group_layout, &texture, &sampler, Uniforms { window_size: [window_size.width as f32, window_size.height as f32]});
 
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             bind_group_layouts: &[&bind_group_layout],
@@ -172,18 +171,23 @@ impl Renderer {
             depth_stencil_state: None,
             vertex_state: wgpu::VertexStateDescriptor {
                 index_format: wgpu::IndexFormat::Uint16,
-                vertex_buffers: &[wgpu::VertexBufferDescriptor {
-                    stride: std::mem::size_of::<Vertex>() as wgpu::BufferAddress,
-                    step_mode: wgpu::InputStepMode::Vertex,
-                    attributes: &wgpu::vertex_attr_array![0 => Float2, 1 => Float2, 2 => Float4, 3 => Int],
-                }],
+                vertex_buffers: &[
+                    wgpu::VertexBufferDescriptor {
+                        stride: std::mem::size_of::<Vertex>() as wgpu::BufferAddress,
+                        step_mode: wgpu::InputStepMode::Vertex,
+                        attributes: &wgpu::vertex_attr_array![0 => Float2],
+                    },
+                    wgpu::VertexBufferDescriptor {
+                        stride: std::mem::size_of::<Instance>() as wgpu::BufferAddress,
+                        step_mode: wgpu::InputStepMode::Instance,
+                        attributes: &wgpu::vertex_attr_array![1 => Float2, 2 => Float2, 3 => Float, 4 => Float2, 5 => Float2, 6 => Float4, 7 => Int]
+                    }
+                ],
             },
             sample_count: 1,
             sample_mask: !0,
             alpha_to_coverage_enabled: false,
         });
-
-        let window_size = window.inner_size();
     
         let swap_chain_desc = wgpu::SwapChainDescriptor {
             usage: wgpu::TextureUsage::OUTPUT_ATTACHMENT,
@@ -198,14 +202,15 @@ impl Renderer {
         queue.submit(Some(init_encoder.finish()));
 
         let buffer_renderer = BufferRenderer {
-            vertices: Vec::new(),
-            indices: Vec::new(),
             glyph_sections: Vec::new(),
+            instances: Vec::new(),
             window_size: Vector2::new(window_size.width as f32, window_size.height as f32),
         };
 
         let renderer = Self {
+            square_buffer: device.create_buffer_with_data(SQUARE.as_bytes(), wgpu::BufferUsage::VERTEX),
             swap_chain, pipeline, window, device, queue, swap_chain_desc, surface, bind_group, glyph_brush,
+            bind_group_layout, texture, sampler
         };
 
         (renderer, buffer_renderer)
@@ -215,14 +220,14 @@ impl Renderer {
         self.swap_chain_desc.width = width;
         self.swap_chain_desc.height = height;
         self.swap_chain = self.device.create_swap_chain(&self.surface, &self.swap_chain_desc);
+        self.bind_group = create_bind_group(&self.device, &self.bind_group_layout, &self.texture, &self.sampler, Uniforms { window_size: [width as f32, height as f32] });
     }
 
-    pub fn render(&mut self, renderer: &mut BufferRenderer) {
-        let buffers = if !renderer.vertices.is_empty() {
-            Some((
-                self.device.create_buffer_with_data(renderer.vertices.as_bytes(), wgpu::BufferUsage::VERTEX),
-                self.device.create_buffer_with_data(renderer.indices.as_bytes(), wgpu::BufferUsage::INDEX)
-            ))
+    pub fn render(&mut self, renderer: &mut BufferRenderer) {        
+        let buffers = if !renderer.instances.is_empty() {
+            Some(
+                self.device.create_buffer_with_data(renderer.instances.as_bytes(), wgpu::BufferUsage::VERTEX),
+            )
         } else {
             None
         };
@@ -230,68 +235,68 @@ impl Renderer {
         let offset = renderer.centering_offset() / 2.0;
         let dimensions = renderer.dimensions();
 
-        let output = self.swap_chain.get_next_texture().unwrap();
-        let mut encoder = self.device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("Hectic CommandEncoder") });
-        {
-            let mut rpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                color_attachments: &[wgpu::RenderPassColorAttachmentDescriptor {
-                    attachment: &output.view,
-                    resolve_target: None,
-                    load_op: wgpu::LoadOp::Clear,
-                    store_op: wgpu::StoreOp::Store,
-                    clear_color: wgpu::Color { r: 0.5, g: 0.125, b: 0.125, a: 1.0 },
-                }],
-                depth_stencil_attachment: None,
-            });
-
-            if let Some((vertices, indices)) = &buffers {
-                #[cfg(feature = "native")]
-                rpass.set_scissor_rect(offset.x as u32, offset.y as u32, dimensions.x as u32, dimensions.y as u32);
-
-                rpass.set_pipeline(&self.pipeline);
-                rpass.set_bind_group(0, &self.bind_group, &[]);
-
-                rpass.set_index_buffer(indices.slice(0 .. 0));
-                rpass.set_vertex_buffer(0, vertices.slice(0 .. 0));
-                rpass.draw_indexed(0 .. renderer.indices.len() as u32, 0, 0 .. 1);
+        if let Ok(frame) = self.swap_chain.get_next_texture() {
+            let mut encoder = self.device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("Hectic CommandEncoder") });
+            {
+                let mut rpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                    color_attachments: &[wgpu::RenderPassColorAttachmentDescriptor {
+                        attachment: &frame.view,
+                        resolve_target: None,
+                        load_op: wgpu::LoadOp::Clear,
+                        store_op: wgpu::StoreOp::Store,
+                        clear_color: wgpu::Color { r: 0.5, g: 0.125, b: 0.125, a: 1.0 },
+                    }],
+                    depth_stencil_attachment: None,
+                });
+    
+                if let Some(instances) = &buffers {
+                    #[cfg(feature = "native")]
+                    rpass.set_scissor_rect(offset.x as u32, offset.y as u32, dimensions.x as u32, dimensions.y as u32);
+    
+                    rpass.set_pipeline(&self.pipeline);
+                    rpass.set_bind_group(0, &self.bind_group, &[]);
+    
+                    rpass.set_vertex_buffer(0, self.square_buffer.slice(..));
+                    rpass.set_vertex_buffer(1, instances.slice(..));
+                    rpass.draw(0 .. SQUARE.len() as u32, 0 .. renderer.instances.len() as u32);
+                }
             }
+    
+            for section in renderer.glyph_sections.drain(..) {
+                let layout = wgpu_glyph::PixelPositioner(section.layout);
+                self.glyph_brush.queue_custom_layout(&section, &layout);
+            }
+    
+            fn orthographic_projection(width: f32, height: f32) -> [f32; 16] {
+                [
+                    2.0 / width, 0.0, 0.0, 0.0,
+                    0.0, -2.0 / height, 0.0, 0.0,
+                    0.0, 0.0, 1.0, 0.0,
+                    -1.0, 1.0, 0.0, 1.0,
+                ]
+            }
+    
+            #[cfg(feature = "native")]
+            self.glyph_brush.draw_queued_with_transform_and_scissoring(
+                &self.device,
+                &mut encoder,
+                &frame.view,
+                orthographic_projection(renderer.window_size.x, renderer.window_size.y),
+                wgpu_glyph::Region { x: offset.x as u32, y: offset.y as u32, width: dimensions.x as u32, height: dimensions.y as u32 },
+            ).unwrap();
+            #[cfg(feature = "wasm")]
+            self.glyph_brush.draw_queued(
+                &self.device,
+                &mut encoder,
+                &frame.view,
+                self.swap_chain_desc.width,
+                self.swap_chain_desc.height,
+            ).unwrap();
+    
+            self.queue.submit(Some(encoder.finish()));    
         }
 
-        for section in renderer.glyph_sections.drain(..) {
-            let layout = wgpu_glyph::PixelPositioner(section.layout);
-            self.glyph_brush.queue_custom_layout(&section, &layout);
-        }
-
-        fn orthographic_projection(width: f32, height: f32) -> [f32; 16] {
-            [
-                2.0 / width, 0.0, 0.0, 0.0,
-                0.0, -2.0 / height, 0.0, 0.0,
-                0.0, 0.0, 1.0, 0.0,
-                -1.0, 1.0, 0.0, 1.0,
-            ]
-        }
-
-        #[cfg(feature = "native")]
-        self.glyph_brush.draw_queued_with_transform_and_scissoring(
-            &self.device,
-            &mut encoder,
-            &output.view,
-            orthographic_projection(renderer.window_size.x, renderer.window_size.y),
-            wgpu_glyph::Region { x: offset.x as u32, y: offset.y as u32, width: dimensions.x as u32, height: dimensions.y as u32 },
-        ).unwrap();
-        #[cfg(feature = "wasm")]
-        self.glyph_brush.draw_queued(
-            &self.device,
-            &mut encoder,
-            &output.view,
-            self.swap_chain_desc.width,
-            self.swap_chain_desc.height,
-        ).unwrap();
-
-        self.queue.submit(Some(encoder.finish()));
-
-        renderer.vertices.clear();
-        renderer.indices.clear();
+        renderer.instances.clear();
     }
 
     pub fn request_redraw(&mut self) {
@@ -299,23 +304,69 @@ impl Renderer {
     }
 }
 
+fn create_bind_group(device: &wgpu::Device, layout: &wgpu::BindGroupLayout, texture: &wgpu::TextureView, sampler: &wgpu::Sampler, uniforms: Uniforms) -> wgpu::BindGroup {
+    let buffer = device.create_buffer_with_data(uniforms.as_bytes(), wgpu::BufferUsage::UNIFORM);
+    device.create_bind_group(&wgpu::BindGroupDescriptor {
+        layout,
+        bindings: &[
+            wgpu::Binding {
+                binding: 0,
+                resource: wgpu::BindingResource::TextureView(texture),
+            },
+            wgpu::Binding {
+                binding: 1,
+                resource: wgpu::BindingResource::Sampler(sampler),
+            },
+            wgpu::Binding {
+                binding: 2,
+                resource: wgpu::BindingResource::Buffer(buffer.slice(..))
+            }
+        ],
+        label: Some("Hectic BindGroup"),
+    })
+}
+
+const SQUARE: [Vertex; 6] = [
+    Vertex { point: [-1.0, -1.0] },
+    Vertex { point: [ 1.0, -1.0] },
+    Vertex { point: [-1.0,  1.0] },
+
+    Vertex { point: [ 1.0, -1.0] },
+    Vertex { point: [-1.0,  1.0] },
+    Vertex { point: [ 1.0,  1.0] },
+];
+
 #[repr(C)]
 #[derive(zerocopy::AsBytes, Clone, Debug)]
 pub struct Vertex {
-    pos: [f32; 2],
-    uv: [f32; 2],
+    point: [f32; 2],
+}
+
+#[repr(C)]
+#[derive(zerocopy::AsBytes, Clone, Debug)]
+pub struct Instance {
+    center: [f32; 2],
+    dimensions: [f32; 2],
+    rotation: f32,
+    uv_top_left: [f32; 2],
+    uv_dimensions: [f32; 2],
     overlay: [f32; 4],
     overlay_only: i32
 }
 
+#[repr(C)]
+#[derive(zerocopy::AsBytes, Clone, Debug)]
+pub struct Uniforms {
+    window_size: [f32; 2],
+}
+
 pub struct BufferRenderer {
-    vertices: Vec<Vertex>,
-    indices: Vec<i16>,
     window_size: Vector2<f32>,
     // We can't store a GlyphBrush directly here because on wasm the buffer
     // is a js type and thus not threadsafe.
     // todo: maybe store something lighter here so we can use cow strs
     glyph_sections: Vec<wgpu_glyph::OwnedVariedSection<wgpu_glyph::DrawMode>>,
+    instances: Vec<Instance>,
 }
 
 impl Default for BufferRenderer {
@@ -342,59 +393,34 @@ impl BufferRenderer {
         crate::DIMENSIONS * self.scale_factor()
     }
 
-    pub fn render_sprite(&mut self, sprite: Image, pos: Vector2<f32>, overlay: [f32; 4]) {
-        self.render_sprite_with_dimensions(sprite, pos, sprite.size() * 2.0, overlay);
+    pub fn render_sprite(&mut self, sprite: Image, pos: Vector2<f32>, rotation: f32, overlay: [f32; 4]) {
+        self.render_sprite_with_dimensions(sprite, pos, sprite.size() * 2.0, rotation, overlay);
     }
 
-    pub fn render_sprite_with_dimensions(&mut self, sprite: Image, mut pos: Vector2<f32>, dimensions: Vector2<f32>, overlay: [f32; 4]) {
+    pub fn render_sprite_with_dimensions(&mut self, sprite: Image, center: Vector2<f32>, dimensions: Vector2<f32>, rotation: f32, overlay: [f32; 4]) {
         let (uv_x, uv_y, uv_w, uv_h) = sprite.coordinates();
 
-        pos = pos * 2.0 * self.scale_factor();
-        pos = pos - self.window_size;
-        pos += self.centering_offset();
-        pos = pos.div_element_wise(self.window_size);
-
-        let mut dimensions = dimensions.div_element_wise(self.window_size) * self.scale_factor();
-        
-        pos.y = -pos.y;
-        dimensions.y = -dimensions.y;
-
-        self.render(pos, dimensions, Vector2::new(uv_x, uv_y), Vector2::new(uv_w, uv_h), overlay, false);
+        self.instances.push(Instance {
+            center: center.into(),
+            dimensions: dimensions.into(),
+            rotation,
+            uv_top_left: [uv_x, uv_y].into(),
+            uv_dimensions: [uv_w, uv_h].into(),
+            overlay,
+            overlay_only: false as i32
+        });
     }
 
-    pub fn render_box(&mut self, mut pos: Vector2<f32>, size: Vector2<f32>, overlay: [f32; 4]) {
-        pos = pos * 2.0 * self.scale_factor();
-        pos = pos - self.window_size;
-        pos += self.centering_offset();
-        pos = pos.div_element_wise(self.window_size);
-
-        let mut dimensions = size
-            .div_element_wise(self.window_size)
-            * self.scale_factor();
-        
-        pos.y = -pos.y;
-        dimensions.y = -dimensions.y;
-
-        self.render(pos, dimensions, crate::ZERO, crate::ZERO, overlay, true);
-    }
-
-    fn render(&mut self, center: Vector2<f32>, dimensions: Vector2<f32>, uv_top_left: Vector2<f32>, uv_dimensions: Vector2<f32>, overlay: [f32; 4], overlay_only: bool) {
-        let len = self.vertices.len() as i16;
-
-        let c = center;
-        let d = dimensions;
-        let uv = uv_top_left;
-        let uv_d = uv_dimensions;
-        let overlay_only = if overlay_only { 1 } else { 0 };
-
-        self.vertices.extend_from_slice(&[
-            Vertex{pos: [c.x + d.x, c.y - d.y], uv: [uv.x + uv_d.x, uv.y], overlay, overlay_only},
-            Vertex{pos: [c.x - d.x, c.y - d.y], uv: [uv.x, uv.y], overlay, overlay_only},
-            Vertex{pos: [c.x - d.x, c.y + d.y], uv: [uv.x, uv.y + uv_d.y], overlay, overlay_only},
-            Vertex{pos: [c.x + d.x, c.y + d.y], uv: [uv.x + uv_d.x, uv.y + uv_d.y], overlay, overlay_only},
-        ]);
-
-        self.indices.extend_from_slice(&[len, len + 1, len + 2, len + 2, len + 3, len]);
+    pub fn render_box(&mut self, center: Vector2<f32>, dimensions: Vector2<f32>, overlay: [f32; 4]) {
+        self.instances.push(Instance {
+            center: center.into(),
+            dimensions: dimensions.into(),
+            rotation: 0.0,
+            uv_top_left: [0.0; 2],
+            uv_dimensions: [0.0; 2],
+            overlay,
+            overlay_only: true as i32
+        });
     }
 
     pub fn render_text(&mut self, text: &Text, mut pos: Vector2<f32>, color: [f32; 4]) {
