@@ -219,6 +219,25 @@ pub struct Explosion(pub f32);
 #[derive(Component)]
 pub struct Invulnerability(f32);
 
+impl Invulnerability {
+    pub fn new() -> Self {
+        Self(std::f32::MIN)
+    }
+
+    pub fn can_damage(&mut self, time: f32) -> bool {
+        if self.time_remaining(time) <= 0.0 {
+            self.0 = time;
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn time_remaining(&self, time: f32) -> f32 {
+        5.0 - (time - self.0)
+    }
+}
+
 #[derive(Component)]
 pub struct PowerOrb(pub u32);
 
@@ -243,25 +262,6 @@ impl PowerBar {
         } else {
             false
         }
-    }
-}
-
-impl Invulnerability {
-    pub fn new() -> Self {
-        Self(std::f32::MIN)
-    }
-
-    pub fn can_damage(&mut self, time: f32) -> bool {
-        if !self.is_invul(time) {
-            self.0 = time;
-            true
-        } else {
-            false
-        }
-    }
-
-    pub fn is_invul(&self, time: f32) -> bool {
-        self.0 + 5.0 >= time
     }
 }
 

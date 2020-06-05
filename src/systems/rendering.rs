@@ -40,7 +40,10 @@ impl<'a> System<'a> for RenderSprite {
                 .map(|overlay| overlay.0)
                 .unwrap_or_else(|| {
                     invul
-                        .filter(|invul| invul.is_invul(time.total_time))
+                        .filter(|invul| {
+                            let remaining = invul.time_remaining(time.total_time);
+                            remaining > 0.0 && (remaining > 1.0 || remaining % 0.2 > 0.1)
+                        })
                         .map(|_| [1.0, 1.0, 1.0, 0.2])
                         .unwrap_or([0.0; 4])
                 });

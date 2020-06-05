@@ -275,9 +275,9 @@ fn flying_skull(builder: &EntityBuilder, start: f32, position: Vector2<f32>) {
 fn boss_one(builder: &EntityBuilder, start: f32) {
     let speed = 10.0 / 3.0;
     let orange_bullet = BulletSetup {
-        image: Image::from(graphics::Image::ColouredBullet),
+        image: Image::from(graphics::Image::Sword),
         speed,
-        colour: Some(ColourBullets::Orange)
+        colour: None
     };
 
     builder.create_entity()
