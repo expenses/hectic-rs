@@ -4,6 +4,7 @@ use winit::{
 };
 
 use cgmath::*;
+use crate::{WIDTH, HEIGHT};
 use crate::components::{Image, Text};
 use zerocopy::*;
 
@@ -130,7 +131,7 @@ impl Renderer {
 
         let window_size = window.inner_size();
 
-        let bind_group = create_bind_group(&device, &bind_group_layout, &texture, &sampler, Uniforms { window_size: [window_size.width as f32, window_size.height as f32]});
+        let bind_group = create_bind_group(&device, &bind_group_layout, &texture, &sampler, Uniforms::new(window_size.width, window_size.height));
 
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             bind_group_layouts: &[&bind_group_layout],
@@ -220,7 +221,7 @@ impl Renderer {
         self.swap_chain_desc.width = width;
         self.swap_chain_desc.height = height;
         self.swap_chain = self.device.create_swap_chain(&self.surface, &self.swap_chain_desc);
-        self.bind_group = create_bind_group(&self.device, &self.bind_group_layout, &self.texture, &self.sampler, Uniforms { window_size: [width as f32, height as f32] });
+        self.bind_group = create_bind_group(&self.device, &self.bind_group_layout, &self.texture, &self.sampler, Uniforms::new(width, height));
     }
 
     pub fn render(&mut self, renderer: &mut BufferRenderer) {        
@@ -358,6 +359,16 @@ pub struct Instance {
 #[derive(zerocopy::AsBytes, Clone, Debug)]
 pub struct Uniforms {
     window_size: [f32; 2],
+    virtual_size: [f32; 2]
+}
+
+impl Uniforms {
+    fn new(width: u32, height: u32) -> Self {
+        Self {
+            window_size: [width as f32, height as f32],
+            virtual_size: [WIDTH, HEIGHT]
+        }
+    }
 }
 
 pub struct BufferRenderer {

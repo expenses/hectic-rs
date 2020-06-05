@@ -16,13 +16,12 @@ layout(location = 2) out int out_overlay_only;
 
 layout(set = 0, binding = 2) uniform Uniforms {
     vec2 window_size;
+    vec2 virtual_size;
 };
 
-const vec2 DIMENSIONS = vec2(480.0, 640.0);
-
 void main() {
-    float scale_factor = min(window_size.x / DIMENSIONS.x, window_size.y / DIMENSIONS.y);
-    vec2 centering_offset = window_size - (DIMENSIONS * scale_factor);
+    float scale_factor = min(window_size.x / virtual_size.x, window_size.y / virtual_size.y);
+    vec2 centering_offset = window_size - (virtual_size * scale_factor);
 
     vec2 pos = i_position * 2.0 * scale_factor;
     pos -= window_size;

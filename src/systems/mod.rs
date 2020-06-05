@@ -5,10 +5,9 @@ use crate::resources::*;
 
 use cgmath::{Vector2, InnerSpace, MetricSpace};
 
+use crate::{WIDTH, HEIGHT};
 use crate::graphics::Image as GraphicsImage;
 
-const WIDTH: f32 = 480.0;
-const HEIGHT: f32 = 640.0;
 const PLAYER_SPEED: f32 = 250.0 / 60.0;
 const PLAYER_BULLET_SPEED: f32 = 1000.0 / 60.0;
 
