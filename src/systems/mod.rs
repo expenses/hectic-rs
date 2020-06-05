@@ -403,6 +403,7 @@ fn build_bullet(entities: &Entities, updater: &LazyUpdate, pos: Vector2<f32>, im
         .with(Position(pos))
         .with(image)
         .with(Velocity(velocity))
+        .with(Rotation(velocity.x.atan2(-velocity.y)))
         .with(DieOffscreen)
         .with(Hitbox(Vector2::new(0.0, 0.0)))
         .with(Health(1));

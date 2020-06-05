@@ -6,132 +6,99 @@ struct Packed {
     height: u32,
 }
 
-use std::io::Write;
-use image::GenericImageView;
 use std::path::Path;
+use texture_packer::{*, importer::*, exporter::*, texture::*};
+use codegen::*;
 
 pub fn pack(
     filenames: impl Iterator<Item=impl AsRef<Path>>,
     output_image: impl AsRef<Path>,
     output_bindings: impl AsRef<Path>,
+    max_width: u32,
+    max_height: u32,
+    derive_line: Option<&str>
 ) -> Result<(), std::io::Error> {
-    let mut target = rectangle_pack::GroupedRectsToPlace::new();
-
-    let mut images = std::collections::HashMap::new();
+    let mut packer = TexturePacker::new_skyline(TexturePackerConfig {
+        trim: false,
+        max_width,
+        max_height,
+        texture_padding: 1,
+        allow_rotation: false,
+        .. Default::default()
+    });
    
     for filename in filenames {
         let filename = filename.as_ref();
-        let image = image::open(filename).unwrap();
         let base = filename.file_stem().unwrap();
-        target.push_rect(
-            base.to_owned(),
-            None::<Vec<()>>,
-            rectangle_pack::RectToInsert::new(image.width(), image.height(), 1)
-        );
-        images.insert(base.to_owned(), image);
+        
+        packer.pack_own(base.to_str().unwrap().to_string(), ImageImporter::import_from_file(filename).unwrap()).unwrap();
     }
 
-    let mut size = 0;
-    let mut placements = None;
+    let width = packer.width();
 
-    while placements.is_none() {
-        let mut map = std::collections::HashMap::new();
-        map.insert((), rectangle_pack::TargetBin::new(size, size, 1));
-    
-        placements = rectangle_pack::pack_rects(
-            &target,
-            map,
-            &rectangle_pack::volume_heuristic,
-            &rectangle_pack::contains_smallest_box
-        ).ok();
-
-        size += 64;
+    if width % 64 != 0 {
+        let needed = 64 - (width % 64);
+        packer.set_row_padding(needed);
     }
 
-    let placements = placements.unwrap();
-
-    create_file(placements.packed_locations().iter().map(|(k, (_, v))| {
-        let name = case_style::CaseStyle::guess(k.to_str().unwrap()).unwrap().to_pascalcase();
+    create_file(packer.get_frames().iter().map(|(k, frame)| {
+        let name = case_style::CaseStyle::guess(k.as_str()).unwrap().to_pascalcase();
 
         Packed {
             name,
-            x: v.x(),
-            y: v.y(),
-            width: v.width(),
-            height: v.height(),
+            x: frame.frame.x,
+            y: frame.frame.y,
+            width: frame.frame.w,
+            height: frame.frame.h,
         }
-    }), output_bindings, size)?;
+    }), output_bindings, packer.width(), packer.height(), derive_line)?;
 
-    let mut base = image::RgbaImage::new(size, size);
 
-    for (k, (_, v)) in placements.packed_locations() {
-        let image = images.get(k).unwrap().to_rgba();
-        image::imageops::replace(&mut base, &image, v.x(), v.y());
-    }
+    let exporter = ImageExporter::export(&packer).unwrap();
 
-    base.save(output_image).unwrap();
+    exporter.save(output_image).unwrap();
 
     Ok(())
 }
 
-fn create_file<'a>(assets: impl Iterator<Item=Packed> + Clone, filename: impl AsRef<Path>, size: u32) -> Result<(), std::io::Error> {
-    let mut file = std::fs::File::create(filename)?;
-    //writeln!(file, "#[derive(Clone, Copy, PartialEq, PartialOrd, Debug, Hash)]")?;
-    writeln!(file, "pub enum Image {{")?;
+fn create_file<'a>(assets: impl Iterator<Item=Packed> + Clone, filename: impl AsRef<Path>, width: u32, height: u32, derive_line: Option<&str>) -> Result<(), std::io::Error> {
+    let mut scope = Scope::new();
+    
+    let image_enum = scope.new_enum("Image")
+        .vis("pub");
+
+    if let Some(derive_line) = derive_line {
+        image_enum.derive(derive_line);
+    }
+
     for asset in assets.clone() {
-        writeln!(file, "\t{},", asset.name)?;
+        image_enum.push_variant(Variant::new(&asset.name));
     }
-    writeln!(file, "}}")?;
-    writeln!(file, "impl Image {{")?;
+    
+    let impl_block = scope.new_impl("Image");
 
-    writeln!(file, "\tpub fn coordinates(&self) -> (u32, u32, u32, u32) {{")?;
-    writeln!(file, "\t\tmatch self {{")?;
-    for asset in assets.clone() {
-        writeln!(
-            file,
-            "\t\t\tImage::{} => ({}, {}, {}, {}),",
-            asset.name, asset.x, asset.y, asset.width, asset.height
-        )?;
-    }
-    writeln!(file, "\t\t}}")?;
-    writeln!(file, "\t}}")?;
+    impl_block.new_fn("coordinates")
+        .arg_self()
+        .vis("pub")
+        .ret("(u32, u32, u32, u32)")
+        .push_block({
+            let mut block = Block::new("match self");
 
-    writeln!(file, "\tpub fn from_u16(i: u16) -> Self {{")?;
-    writeln!(file, "\t\tmatch i {{")?;
-    for (i, asset) in assets.clone().enumerate() {
-        writeln!(file, "\t\t\t{} => Image::{},", i, asset.name)?;
-    }
-    writeln!(file, "\t\t\t_ => panic!(),")?;
-    writeln!(file, "\t\t}}")?;
-    writeln!(file, "\t}}")?;
+            for asset in assets.clone() {
+                block.line(&format!(
+                    "Image::{} => ({}, {}, {}, {}),",
+                    asset.name, asset.x, asset.y, asset.width, asset.height
+                ));
+            }
 
-    writeln!(file, "\tpub fn to_u16(&self) -> u16 {{")?;
-    writeln!(file, "\t\tmatch self {{")?;
-    for (i, asset) in assets.clone().enumerate() {
-        writeln!(file, "\t\t\tImage::{} => {},", asset.name, i)?;
-    } 
-    writeln!(file, "\t\t}}")?;
-    writeln!(file, "\t}}")?;
+            block
+        });
 
-    writeln!(file, "\tpub fn image_size(&self) -> u32 {{")?;
-    writeln!(file, "\t\t{}", size)?;
-    writeln!(file, "\t}}")?;
+    impl_block.new_fn("image_dimensions")
+        .arg_self()
+        .vis("pub")
+        .ret("(u32, u32)")
+        .line(&format!("({}, {})", width, height));
 
-    writeln!(file, "}}")?;
-    Ok(())
-}
-
-#[test]
-fn z() {
-    pack(
-        std::fs::read_dir("images").unwrap().map(|x| x.unwrap().path()),
-        "out.png",
-        "out.rs",
-    ).unwrap();
-}
-
-#[test]
-fn x() {
-   // let images = [Packed {name: format!("x"), x: 0, y: 0, height: 0, width: 0}];
-    //create_file(images.iter(), "s");
+    std::fs::write(filename, &scope.to_string())
 }

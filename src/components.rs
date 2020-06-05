@@ -8,22 +8,22 @@ use crate::{WIDTH, HEIGHT};
 use crate::graphics::Image as GraphicsImage;
 
 #[derive(Component, Clone, Copy)]
-pub struct Image(u16);
+pub struct Image(GraphicsImage);
 
 impl Image {
     pub fn coordinates(self) -> (f32, f32, f32, f32) {
-        let (x, y, w, h) = GraphicsImage::from_u16(self.0).coordinates();
-        let size = GraphicsImage::from_u16(self.0).image_size() as f32;
-        (x as f32 / size, y as f32 / size, w as f32 / size, h as f32 / size)
+        let (x, y, w, h) = self.0.coordinates();
+        let (width, height) = self.0.image_dimensions();
+        (x as f32 / width as f32, y as f32 / height as f32, w as f32 / width as f32, h as f32 / height as f32)
     }
 
     pub fn size(self) -> Vector2<f32> {
-        let (_, _, w, h) = GraphicsImage::from_u16(self.0).coordinates();
+        let (_, _, w, h) = self.0.coordinates();
         Vector2::new(w as f32, h as f32)
     }
 
     pub fn from(image: GraphicsImage) -> Self {
-        Self(image.to_u16())
+        Self(image)
     }
 }
 
@@ -39,6 +39,9 @@ pub struct BackgroundLayer { pub depth: u32 }
 
 #[derive(Component)]
 pub struct Position(pub Vector2<f32>);
+
+#[derive(Component)]
+pub struct Rotation(pub f32);
 
 #[derive(Component)]
 pub struct Velocity(pub Vector2<f32>);
@@ -216,6 +219,25 @@ pub struct Explosion(pub f32);
 #[derive(Component)]
 pub struct Invulnerability(f32);
 
+impl Invulnerability {
+    pub fn new() -> Self {
+        Self(std::f32::MIN)
+    }
+
+    pub fn can_damage(&mut self, time: f32) -> bool {
+        if self.time_remaining(time) <= 0.0 {
+            self.0 = time;
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn time_remaining(&self, time: f32) -> f32 {
+        5.0 - (time - self.0)
+    }
+}
+
 #[derive(Component)]
 pub struct PowerOrb(pub u32);
 
@@ -240,25 +262,6 @@ impl PowerBar {
         } else {
             false
         }
-    }
-}
-
-impl Invulnerability {
-    pub fn new() -> Self {
-        Self(std::f32::MIN)
-    }
-
-    pub fn can_damage(&mut self, time: f32) -> bool {
-        if !self.is_invul(time) {
-            self.0 = time;
-            true
-        } else {
-            false
-        }
-    }
-
-    pub fn is_invul(&self, time: f32) -> bool {
-        self.0 + 5.0 >= time
     }
 }
 
