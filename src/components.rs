@@ -311,7 +311,7 @@ impl FollowCurve {
 
 
     pub fn horizontal(start_y: f32, end_y: f32, left_to_right: bool, speed: f32) -> Self {
-        const FORCE: f32 = 1500.0;
+        const FORCE: f32 = 2500.0;
         const OFFSET: f32 = 20.0;
 
         if left_to_right {

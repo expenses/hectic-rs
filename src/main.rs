@@ -162,8 +162,8 @@ async fn run() {
     });
 }
 
-const WIDTH: f32 = 480.0;
-const HEIGHT: f32 = 640.0;
+const WIDTH: f32 = 960.0;
+const HEIGHT: f32 = 540.0;
 const DIMENSIONS: Vector2<f32> = Vector2::new(WIDTH, HEIGHT);
 const ZERO: Vector2<f32> = Vector2::new(0.0, 0.0);
 const MIDDLE: Vector2<f32> = Vector2::new(WIDTH / 2.0, HEIGHT / 2.0);

@@ -25,15 +25,15 @@ pub fn stage_one(entities: &Entities, updater: &LazyUpdate, multiplayer: bool, t
 
     *time = 0.0;
     clear(builder);
-    create_background(builder, graphics::Image::NightSky, ZERO, ZERO, 0);
+    create_background(builder, graphics::Image::StageOne, Vector2::new(0.0, -1200.0 + HEIGHT / 2.0), Vector2::new(0.0, 0.3), 0);
     create_background(builder, graphics::Image::Clouds, ZERO, Vector2::new(0.0, 1.0), 1);
     create_background(builder, graphics::Image::Clouds, Vector2::new(0.0, 1920.0), Vector2::new(0.0, 1.0), 1);
     create_title(builder, "Stage\nOne");
     create_players(builder, multiplayer);
 
     for start in float_iter(1.0, 6.0, 0.25) {
-        bat_with_curve(builder, FollowCurve::horizontal(100.0, 300.0, true, 2.5), start);
-        bat_with_curve(builder, FollowCurve::horizontal(150.0, 350.0, true, 2.5), start);
+        bat_with_curve(builder, FollowCurve::horizontal(50.0, 400.0, true, 2.5), start);
+        bat_with_curve(builder, FollowCurve::horizontal(100.0, 450.0, true, 2.5), start);
     }
 
     for start in float_iter(3.0, 10.0, 0.25) {
