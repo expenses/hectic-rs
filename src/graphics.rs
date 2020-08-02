@@ -37,16 +37,7 @@ fn load_png(bytes: &'static [u8], device: &wgpu::Device, encoder: &mut wgpu::Com
         texture_extent,
     );
 
-    texture.create_view(&wgpu::TextureViewDescriptor {
-        format: wgpu::TextureFormat::Rgba8Unorm,
-        dimension: wgpu::TextureViewDimension::D2,
-        aspect: wgpu::TextureAspect::All,
-        base_mip_level: 0,
-        level_count: 1,
-        base_array_layer: 0,
-        array_layer_count: 0,
-        label: Some("Hectic TextureView")
-    })
+    texture.create_default_view()
 }
 
 include!(concat!(env!("OUT_DIR"), "/image.rs"));
