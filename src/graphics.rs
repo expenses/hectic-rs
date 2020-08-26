@@ -44,7 +44,7 @@ fn load_png(bytes: &'static [u8], device: &wgpu::Device, encoder: &mut wgpu::Com
         texture_extent,
     );
 
-    texture.create_default_view()
+    texture.create_view(&wgpu::TextureViewDescriptor::default())
 }
 
 include!(concat!(env!("OUT_DIR"), "/image.rs"));

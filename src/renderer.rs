@@ -7,7 +7,6 @@ use cgmath::*;
 use crate::{WIDTH, HEIGHT};
 use crate::components::{Image, Text};
 use zerocopy::*;
-use std::borrow::Cow;
 use wgpu::util::DeviceExt;
 
 pub struct Renderer {
@@ -19,9 +18,8 @@ pub struct Renderer {
     swap_chain_desc: wgpu::SwapChainDescriptor,
     surface: wgpu::Surface,
     bind_group: wgpu::BindGroup,
-    glyph_brush: wgpu_glyph::GlyphBrush<'static, ()>,
+    glyph_brush: wgpu_glyph::GlyphBrush<(), wgpu_glyph::ab_glyph::FontRef<'static>>,
     square_buffer: wgpu::Buffer,
-
     bind_group_layout: wgpu::BindGroupLayout,
     texture: wgpu::TextureView,
     sampler: wgpu::Sampler,
@@ -72,13 +70,12 @@ impl Renderer {
         let fs_module =
             device.create_shader_module(wgpu::include_spirv!("shader.frag.spv"));
     
-        let fonts: &[&[u8]] = &[
-            include_bytes!("fonts/OldeEnglish.ttf"),
-            include_bytes!("fonts/TinyUnicode.ttf")
+        let fonts = vec![
+            wgpu_glyph::ab_glyph::FontRef::try_from_slice(include_bytes!("fonts/OldeEnglish.ttf")).unwrap(),
+            wgpu_glyph::ab_glyph::FontRef::try_from_slice(include_bytes!("fonts/TinyUnicode.ttf")).unwrap(),
         ];
 
-        let glyph_brush = wgpu_glyph::GlyphBrushBuilder::using_fonts_bytes(fonts)
-            .unwrap()
+        let glyph_brush = wgpu_glyph::GlyphBrushBuilder::using_fonts(fonts)
             .texture_filter_method(wgpu::FilterMode::Nearest)
             .build(&device, wgpu::TextureFormat::Bgra8Unorm);
 
@@ -100,7 +97,7 @@ impl Renderer {
 
         let bind_group_layout =
             device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                entries: Cow::Borrowed(&[
+                entries: &[
                     wgpu::BindGroupLayoutEntry {
                         binding: 0,
                         visibility: wgpu::ShaderStage::FRAGMENT,
@@ -126,7 +123,7 @@ impl Renderer {
                         },
                         count: None,
                     }
-                ]),
+                ],
                 label: Some("Hectic BindGroupLayout".into()),
             });
 
@@ -135,12 +132,14 @@ impl Renderer {
         let bind_group = create_bind_group(&device, &bind_group_layout, &texture, &sampler, Uniforms::new(window_size.width, window_size.height));
 
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-            bind_group_layouts: Cow::Borrowed(&[&bind_group_layout]),
+            bind_group_layouts: &[&bind_group_layout],
             push_constant_ranges: Default::default(),
+            label: Some("Hectic PipelineLayout".into()),
         });
 
         let pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-            layout: &pipeline_layout,
+            label: Some("Hectic Pipeline".into()),
+            layout: Some(&pipeline_layout),
             vertex_stage: wgpu::ProgrammableStageDescriptor {
                 module: &vs_module,
                 entry_point: "main".into(),
@@ -158,7 +157,7 @@ impl Renderer {
                 clamp_depth: false,
             }),
             primitive_topology: wgpu::PrimitiveTopology::TriangleList,
-            color_states: Cow::Borrowed(&[wgpu::ColorStateDescriptor {
+            color_states: &[wgpu::ColorStateDescriptor {
                 format: wgpu::TextureFormat::Bgra8Unorm,
                 color_blend: wgpu::BlendDescriptor {
                     src_factor: wgpu::BlendFactor::SrcAlpha,
@@ -171,22 +170,22 @@ impl Renderer {
                     operation: wgpu::BlendOperation::Max,
                 },
                 write_mask: wgpu::ColorWrite::ALL,
-            }]),
+            }],
             depth_stencil_state: None,
             vertex_state: wgpu::VertexStateDescriptor {
                 index_format: wgpu::IndexFormat::Uint16,
-                vertex_buffers: Cow::Borrowed(&[
+                vertex_buffers: &[
                     wgpu::VertexBufferDescriptor {
                         stride: std::mem::size_of::<Vertex>() as wgpu::BufferAddress,
                         step_mode: wgpu::InputStepMode::Vertex,
-                        attributes: Cow::Borrowed(&wgpu::vertex_attr_array![0 => Float2]),
+                        attributes: &wgpu::vertex_attr_array![0 => Float2],
                     },
                     wgpu::VertexBufferDescriptor {
                         stride: std::mem::size_of::<Instance>() as wgpu::BufferAddress,
                         step_mode: wgpu::InputStepMode::Instance,
-                        attributes: Cow::Borrowed(&wgpu::vertex_attr_array![1 => Float2, 2 => Float2, 3 => Float, 4 => Float2, 5 => Float2, 6 => Float4, 7 => Int]),
+                        attributes: &wgpu::vertex_attr_array![1 => Float2, 2 => Float2, 3 => Float, 4 => Float2, 5 => Float2, 6 => Float4, 7 => Int],
                     }
-                ]),
+                ],
             },
             sample_count: 1,
             sample_mask: !0,
@@ -219,7 +218,7 @@ impl Renderer {
 
         let renderer = Self {
             square_buffer, swap_chain, pipeline, window, device, queue, swap_chain_desc, surface,
-            bind_group, glyph_brush, bind_group_layout, texture, sampler
+            bind_group, glyph_brush, bind_group_layout, texture, sampler,
         };
 
         (renderer, buffer_renderer)
@@ -255,14 +254,14 @@ impl Renderer {
 
             {
                 let mut rpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                    color_attachments: Cow::Borrowed(&[wgpu::RenderPassColorAttachmentDescriptor {
+                    color_attachments: &[wgpu::RenderPassColorAttachmentDescriptor {
                         attachment: &frame.output.view,
                         resolve_target: None,
                         ops: wgpu::Operations {
                             load: wgpu::LoadOp::Clear(wgpu::Color { r: 0.5, g: 0.125, b: 0.125, a: 1.0 }),
                             store: true,
                         },
-                    }]),
+                    }],
                     depth_stencil_attachment: None,
                 });
     
@@ -281,29 +280,23 @@ impl Renderer {
     
             for section in renderer.glyph_sections.drain(..) {
                 let layout = wgpu_glyph::PixelPositioner(section.layout);
-                self.glyph_brush.queue_custom_layout(&section, &layout);
+                let section = section.to_borrowed();
+                self.glyph_brush.queue_custom_layout(section, &layout);
             }
-    
-            fn orthographic_projection(width: f32, height: f32) -> [f32; 16] {
-                [
-                    2.0 / width, 0.0, 0.0, 0.0,
-                    0.0, -2.0 / height, 0.0, 0.0,
-                    0.0, 0.0, 1.0, 0.0,
-                    -1.0, 1.0, 0.0, 1.0,
-                ]
-            }
-    
+
             #[cfg(feature = "native")]
             self.glyph_brush.draw_queued_with_transform_and_scissoring(
                 &self.device,
+                &mut wgpu::util::StagingBelt::new(100),
                 &mut encoder,
                 &frame.output.view,
-                orthographic_projection(renderer.window_size.x, renderer.window_size.y),
+                wgpu_glyph::orthographic_projection(renderer.window_size.x as u32, renderer.window_size.y as u32),
                 wgpu_glyph::Region { x: offset.x as u32, y: offset.y as u32, width: dimensions.x as u32, height: dimensions.y as u32 },
             ).unwrap();
             #[cfg(feature = "wasm")]
             self.glyph_brush.draw_queued(
                 &self.device,
+                &mut wgpu::util::StagingBelt::new(100),
                 &mut encoder,
                 &frame.output.view,
                 self.swap_chain_desc.width,
@@ -329,7 +322,7 @@ fn create_bind_group(device: &wgpu::Device, layout: &wgpu::BindGroupLayout, text
     });
     device.create_bind_group(&wgpu::BindGroupDescriptor {
         layout,
-        entries: Cow::Borrowed(&[
+        entries: &[
             wgpu::BindGroupEntry {
                 binding: 0,
                 resource: wgpu::BindingResource::TextureView(texture),
@@ -342,7 +335,7 @@ fn create_bind_group(device: &wgpu::Device, layout: &wgpu::BindGroupLayout, text
                 binding: 2,
                 resource: wgpu::BindingResource::Buffer(buffer.slice(..))
             }
-        ]),
+        ],
         label: Some("Hectic BindGroup".into()),
     })
 }
@@ -396,7 +389,7 @@ pub struct BufferRenderer {
     // We can't store a GlyphBrush directly here because on wasm the buffer
     // is a js type and thus not threadsafe.
     // todo: maybe store something lighter here so we can use cow strs
-    glyph_sections: Vec<wgpu_glyph::OwnedVariedSection<wgpu_glyph::DrawMode>>,
+    glyph_sections: Vec<glyph_brush::OwnedSection<wgpu_glyph::Extra>>,
     instances: Vec<Instance>,
 }
 
@@ -463,19 +456,24 @@ impl BufferRenderer {
             _ => unreachable!()
         };
 
-        let section = wgpu_glyph::OwnedVariedSection {
+        let section = glyph_brush::OwnedSection {
             screen_position: (pos * self.scale_factor()).into(),
             layout: text.layout,
             text: vec![
-                wgpu_glyph::OwnedSectionText {
+                glyph_brush::OwnedText {
                     text: text.text.clone(),
-                    scale: wgpu_glyph::Scale::uniform(scale * self.scale_factor()),
-                    color,
+                    scale: glyph_brush::ab_glyph::PxScale::from(scale * self.scale_factor()),
                     font_id: wgpu_glyph::FontId(text.font),
-                    custom: wgpu_glyph::DrawMode::pixelated(2.0 * self.scale_factor()),
+                    extra: wgpu_glyph::Extra {
+                        draw_mode: wgpu_glyph::DrawMode::Pixelated(2.0 * self.scale_factor()),
+                        other: glyph_brush::Extra {
+                            color,
+                            ..Default::default()
+                        },
+                    },
                 }
             ],
-            ..wgpu_glyph::OwnedVariedSection::default()
+            ..Default::default()
         };
 
         self.glyph_sections.push(section);

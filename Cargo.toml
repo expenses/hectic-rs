@@ -8,8 +8,8 @@ edition = "2018"
 
 [dependencies]
 specs = { version = "0.16.1", default-features = false, features = ["specs-derive"] }
-winit = { version = "0.22.2", features = ["web-sys", "serde"] }
-wgpu = { git = "https://github.com/gfx-rs/wgpu-rs" }
+winit = { version = "0.22.2", features = ["serde"] }
+wgpu = "0.6.0"
 image = { version = "0.23.8", default-features = false, features = ["png"] }
 rand = { version = "0.7.3", features = ["wasm-bindgen"] }
 arrayvec = "0.5.1"
@@ -24,10 +24,11 @@ web-sys = { version = "0.3.44", optional = true }
 wasm-bindgen-futures = { version = "0.4.17", optional = true }
 log = "0.4.11"
 console_log = "0.2.0"
-serde = { version = "1.0.114", features = ["derive"] }
+serde = { version = "1.0.115", features = ["derive"] }
 toml = "0.5.6"
 line_drawing = "0.8.0"
 palette = "0.5.0"
+glyph_brush = "0.7.0"
 
 [build-dependencies]
 yaap = { path = "yaap" }
@@ -40,5 +41,6 @@ wasm = [
     "wasm-bindgen-futures",
     "rand/wasm-bindgen",
     "specs/wasm-bindgen",
+    "winit/web-sys",
 ]
 native = ["specs/parallel"]
