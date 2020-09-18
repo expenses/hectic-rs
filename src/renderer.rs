@@ -76,23 +76,15 @@ impl Renderer {
         ];
 
         let glyph_brush = wgpu_glyph::GlyphBrushBuilder::using_fonts(fonts)
+            .initial_cache_size((512, 512))
             .texture_filter_method(wgpu::FilterMode::Nearest)
             .build(&device, wgpu::TextureFormat::Bgra8Unorm);
 
         let mut init_encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("Hectic init CommandEncoder".into()) });
         let texture = crate::graphics::load_packed(&device, &mut init_encoder);
         let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
-            address_mode_u: wgpu::AddressMode::Repeat,
-            address_mode_v: wgpu::AddressMode::Repeat,
-            address_mode_w: wgpu::AddressMode::Repeat,
-            mag_filter: wgpu::FilterMode::Nearest,
-            min_filter: wgpu::FilterMode::Nearest,
-            mipmap_filter: wgpu::FilterMode::Nearest,
-            lod_min_clamp: 0.0,
-            lod_max_clamp: 0.0,
-            compare: None,
-            anisotropy_clamp: None,
-            label: Some("Hectic Sampler".into())
+            label: Some("Hectic Sampler".into()),
+            .. Default::default()
         });
 
         let bind_group_layout =
@@ -148,14 +140,7 @@ impl Renderer {
                 module: &fs_module,
                 entry_point: "main".into(),
             }),
-            rasterization_state: Some(wgpu::RasterizationStateDescriptor {
-                front_face: wgpu::FrontFace::Ccw,
-                cull_mode: wgpu::CullMode::None,
-                depth_bias: 0,
-                depth_bias_slope_scale: 0.0,
-                depth_bias_clamp: 0.0,
-                clamp_depth: false,
-            }),
+            rasterization_state: Some(wgpu::RasterizationStateDescriptor::default()),
             primitive_topology: wgpu::PrimitiveTopology::TriangleList,
             color_states: &[wgpu::ColorStateDescriptor {
                 format: wgpu::TextureFormat::Bgra8Unorm,
@@ -333,7 +318,7 @@ fn create_bind_group(device: &wgpu::Device, layout: &wgpu::BindGroupLayout, text
             },
             wgpu::BindGroupEntry {
                 binding: 2,
-                resource: wgpu::BindingResource::Buffer(buffer.slice(..))
+                resource: wgpu::BindingResource::Buffer(buffer.slice(..)),
             }
         ],
         label: Some("Hectic BindGroup".into()),
