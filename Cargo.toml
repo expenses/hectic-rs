@@ -44,3 +44,6 @@ wasm = [
     "winit/web-sys",
 ]
 native = ["specs/parallel"]
+
+[patch.crates-io]
+wgpu = { git = "https://github.com/gfx-rs/wgpu-rs"}

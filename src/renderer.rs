@@ -18,7 +18,7 @@ pub struct Renderer {
     swap_chain_desc: wgpu::SwapChainDescriptor,
     surface: wgpu::Surface,
     bind_group: wgpu::BindGroup,
-    glyph_brush: wgpu_glyph::GlyphBrush<(), wgpu_glyph::ab_glyph::FontRef<'static>>,
+    //glyph_brush: wgpu_glyph::GlyphBrush<(), wgpu_glyph::ab_glyph::FontRef<'static>>,
     square_buffer: wgpu::Buffer,
     bind_group_layout: wgpu::BindGroupLayout,
     texture: wgpu::TextureView,
@@ -75,10 +75,10 @@ impl Renderer {
             wgpu_glyph::ab_glyph::FontRef::try_from_slice(include_bytes!("fonts/TinyUnicode.ttf")).unwrap(),
         ];
 
-        let glyph_brush = wgpu_glyph::GlyphBrushBuilder::using_fonts(fonts)
+        /*let glyph_brush = wgpu_glyph::GlyphBrushBuilder::using_fonts(fonts)
             .initial_cache_size((512, 512))
             .texture_filter_method(wgpu::FilterMode::Nearest)
-            .build(&device, wgpu::TextureFormat::Bgra8Unorm);
+            .build(&device, wgpu::TextureFormat::Bgra8Unorm);*/
 
         let mut init_encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("Hectic init CommandEncoder".into()) });
         let texture = crate::graphics::load_packed(&device, &mut init_encoder);
@@ -203,7 +203,7 @@ impl Renderer {
 
         let renderer = Self {
             square_buffer, swap_chain, pipeline, window, device, queue, swap_chain_desc, surface,
-            bind_group, glyph_brush, bind_group_layout, texture, sampler,
+            bind_group, bind_group_layout, texture, sampler,
         };
 
         (renderer, buffer_renderer)
@@ -251,7 +251,7 @@ impl Renderer {
                 });
     
                 if let Some(instances) = &buffers {
-                    #[cfg(feature = "native")]
+                    //#[cfg(feature = "native")]
                     rpass.set_scissor_rect(offset.x as u32, offset.y as u32, dimensions.x as u32, dimensions.y as u32);
     
                     rpass.set_pipeline(&self.pipeline);
@@ -263,7 +263,8 @@ impl Renderer {
                 }
             }
     
-            for section in renderer.glyph_sections.drain(..) {
+            renderer.glyph_sections.clear();
+            /*for section in renderer.glyph_sections.drain(..) {
                 let layout = wgpu_glyph::PixelPositioner(section.layout);
                 let section = section.to_borrowed();
                 self.glyph_brush.queue_custom_layout(section, &layout);
@@ -286,7 +287,7 @@ impl Renderer {
                 &frame.output.view,
                 self.swap_chain_desc.width,
                 self.swap_chain_desc.height,
-            ).unwrap();
+            ).unwrap();*/
     
             self.queue.submit(Some(encoder.finish()));    
         }
@@ -318,7 +319,11 @@ fn create_bind_group(device: &wgpu::Device, layout: &wgpu::BindGroupLayout, text
             },
             wgpu::BindGroupEntry {
                 binding: 2,
-                resource: wgpu::BindingResource::Buffer(buffer.slice(..)),
+                resource: wgpu::BindingResource::Buffer {
+                    buffer: &buffer,
+                    offset: 0,
+                    size: None,
+                }
             }
         ],
         label: Some("Hectic BindGroup".into()),
