@@ -19,10 +19,8 @@ pub struct Renderer {
     bind_group: wgpu::BindGroup,
     glyph_brush: wgpu_glyph::GlyphBrush<'static, ()>,
     square_buffer: wgpu::Buffer,
-
-    bind_group_layout: wgpu::BindGroupLayout,
-    texture: wgpu::TextureView,
-    sampler: wgpu::Sampler,
+    uniform_buffer: wgpu::Buffer,
+    instance_buffer: GpuBuffer<Instance>,
 }
 
 impl Renderer {
@@ -131,7 +129,29 @@ impl Renderer {
 
         let window_size = window.inner_size();
 
-        let bind_group = create_bind_group(&device, &bind_group_layout, &texture, &sampler, Uniforms::new(window_size.width, window_size.height));
+        let uniform_buffer = device.create_buffer_with_data(
+            Uniforms::new(window_size.width, window_size.height).as_bytes(),
+            wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST
+        );
+
+        let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            layout: &bind_group_layout,
+            bindings: &[
+                wgpu::Binding {
+                    binding: 0,
+                    resource: wgpu::BindingResource::TextureView(&texture),
+                },
+                wgpu::Binding {
+                    binding: 1,
+                    resource: wgpu::BindingResource::Sampler(&sampler),
+                },
+                wgpu::Binding {
+                    binding: 2,
+                    resource: wgpu::BindingResource::Buffer(uniform_buffer.slice(0 .. std::mem::size_of::<Uniforms>() as u64))
+                }
+            ],
+            label: Some("Hectic BindGroup"),
+        });
 
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             bind_group_layouts: &[&bind_group_layout],
@@ -208,10 +228,12 @@ impl Renderer {
             window_size: Vector2::new(window_size.width as f32, window_size.height as f32),
         };
 
+        let instance_buffer = GpuBuffer::new(&device, 500);
+
         let renderer = Self {
             square_buffer: device.create_buffer_with_data(SQUARE.as_bytes(), wgpu::BufferUsage::VERTEX),
             swap_chain, pipeline, window, device, queue, swap_chain_desc, surface, bind_group, glyph_brush,
-            bind_group_layout, texture, sampler
+            uniform_buffer, instance_buffer
         };
 
         (renderer, buffer_renderer)
@@ -221,23 +243,24 @@ impl Renderer {
         self.swap_chain_desc.width = width;
         self.swap_chain_desc.height = height;
         self.swap_chain = self.device.create_swap_chain(&self.surface, &self.swap_chain_desc);
-        self.bind_group = create_bind_group(&self.device, &self.bind_group_layout, &self.texture, &self.sampler, Uniforms::new(width, height));
+
+        let staging_buffer = self.device.create_buffer_with_data(Uniforms::new(width, height).as_bytes(), wgpu::BufferUsage::COPY_SRC);
+        let mut encoder = self.device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("Hectic CommandEncoder") });
+        encoder.copy_buffer_to_buffer(&staging_buffer, 0, &self.uniform_buffer, 0, std::mem::size_of::<Uniforms>() as u64);
+        self.queue.submit(Some(encoder.finish()));
     }
 
-    pub fn render(&mut self, renderer: &mut BufferRenderer) {        
-        let buffers = if !renderer.instances.is_empty() {
-            Some(
-                self.device.create_buffer_with_data(renderer.instances.as_bytes(), wgpu::BufferUsage::VERTEX),
-            )
-        } else {
-            None
-        };
-
+    pub fn render(&mut self, renderer: &mut BufferRenderer) {
         let offset = renderer.centering_offset() / 2.0;
         let dimensions = renderer.dimensions();
 
         if let Ok(frame) = self.swap_chain.get_next_texture() {
             let mut encoder = self.device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("Hectic CommandEncoder") });
+
+            if !renderer.instances.is_empty() {
+                self.instance_buffer.upload(&self.device, &mut encoder, &renderer.instances);
+            }
+
             {
                 let mut rpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                     color_attachments: &[wgpu::RenderPassColorAttachmentDescriptor {
@@ -249,25 +272,26 @@ impl Renderer {
                     }],
                     depth_stencil_attachment: None,
                 });
-    
-                if let Some(instances) = &buffers {
+
+                if self.instance_buffer.len > 0 {
                     #[cfg(feature = "native")]
                     rpass.set_scissor_rect(offset.x as u32, offset.y as u32, dimensions.x as u32, dimensions.y as u32);
-    
+
                     rpass.set_pipeline(&self.pipeline);
                     rpass.set_bind_group(0, &self.bind_group, &[]);
-    
+
                     rpass.set_vertex_buffer(0, self.square_buffer.slice(..));
-                    rpass.set_vertex_buffer(1, instances.slice(..));
-                    rpass.draw(0 .. SQUARE.len() as u32, 0 .. renderer.instances.len() as u32);
+                    let byte_len = self.instance_buffer.byte_len() as u64;
+                    rpass.set_vertex_buffer(1, self.instance_buffer.buffer.slice(..byte_len));
+                    rpass.draw(0 .. SQUARE.len() as u32, 0 .. self.instance_buffer.len as u32);
                 }
             }
-    
+
             for section in renderer.glyph_sections.drain(..) {
                 let layout = wgpu_glyph::PixelPositioner(section.layout);
                 self.glyph_brush.queue_custom_layout(&section, &layout);
             }
-    
+
             fn orthographic_projection(width: f32, height: f32) -> [f32; 16] {
                 [
                     2.0 / width, 0.0, 0.0, 0.0,
@@ -276,7 +300,7 @@ impl Renderer {
                     -1.0, 1.0, 0.0, 1.0,
                 ]
             }
-    
+
             #[cfg(feature = "native")]
             self.glyph_brush.draw_queued_with_transform_and_scissoring(
                 &self.device,
@@ -293,7 +317,7 @@ impl Renderer {
                 self.swap_chain_desc.width,
                 self.swap_chain_desc.height,
             ).unwrap();
-    
+
             self.queue.submit(Some(encoder.finish()));    
         }
 
@@ -305,26 +329,50 @@ impl Renderer {
     }
 }
 
-fn create_bind_group(device: &wgpu::Device, layout: &wgpu::BindGroupLayout, texture: &wgpu::TextureView, sampler: &wgpu::Sampler, uniforms: Uniforms) -> wgpu::BindGroup {
-    let buffer = device.create_buffer_with_data(uniforms.as_bytes(), wgpu::BufferUsage::UNIFORM);
-    device.create_bind_group(&wgpu::BindGroupDescriptor {
-        layout,
-        bindings: &[
-            wgpu::Binding {
-                binding: 0,
-                resource: wgpu::BindingResource::TextureView(texture),
-            },
-            wgpu::Binding {
-                binding: 1,
-                resource: wgpu::BindingResource::Sampler(sampler),
-            },
-            wgpu::Binding {
-                binding: 2,
-                resource: wgpu::BindingResource::Buffer(buffer.slice(0 .. std::mem::size_of::<Uniforms>() as u64))
-            }
-        ],
-        label: Some("Hectic BindGroup"),
-    })
+struct GpuBuffer<T> {
+    buffer: wgpu::Buffer,
+    capacity: usize,
+    len: usize,
+    _phantom: std::marker::PhantomData<T>,
+}
+
+impl<T: AsBytes> GpuBuffer<T> {
+    fn new(device: &wgpu::Device, base_capacity: usize) -> Self {
+        Self {
+            capacity: base_capacity,
+            buffer: device.create_buffer(&wgpu::BufferDescriptor {
+                label: None,
+                size: (base_capacity * std::mem::size_of::<T>()) as u64,
+                usage: wgpu::BufferUsage::VERTEX | wgpu::BufferUsage::COPY_DST,
+            }),
+            len: 0,
+            _phantom: std::marker::PhantomData,
+        }
+    }
+
+    fn upload(&mut self, device: &wgpu::Device, encoder: &mut wgpu::CommandEncoder, items: &[T]) {
+        if items.len() <= self.capacity {
+            let staging_buffer = device.create_buffer_with_data(items.as_bytes(), wgpu::BufferUsage::COPY_SRC);
+            encoder.copy_buffer_to_buffer(&staging_buffer, 0, &self.buffer, 0, items.as_bytes().len() as u64);
+            self.len = items.len();
+        } else {
+            self.capacity = self.capacity * 2;
+            println!("resizing to {} items", self.capacity);
+            let mut buffer = device.create_buffer_mapped(&wgpu::BufferDescriptor {
+                label: None,
+                size: (self.capacity * std::mem::size_of::<T>()) as u64,
+                usage: wgpu::BufferUsage::VERTEX | wgpu::BufferUsage::COPY_DST,
+            });
+            let byte_len = items.as_bytes().len();
+            buffer.data()[..byte_len].copy_from_slice(items.as_bytes());
+            self.buffer = buffer.finish();
+            self.len = items.len();
+        }
+    }
+
+    fn byte_len(&self) -> usize {
+        self.len * std::mem::size_of::<T>()
+    }
 }
 
 const SQUARE: [Vertex; 6] = [
