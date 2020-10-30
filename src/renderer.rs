@@ -7,6 +7,7 @@ use cgmath::*;
 use crate::{WIDTH, HEIGHT};
 use crate::components::{Image, Text};
 use zerocopy::*;
+use wgpu::util::DeviceExt;
 
 pub struct Renderer {
     swap_chain: wgpu::SwapChain,
@@ -17,7 +18,7 @@ pub struct Renderer {
     swap_chain_desc: wgpu::SwapChainDescriptor,
     surface: wgpu::Surface,
     bind_group: wgpu::BindGroup,
-    glyph_brush: wgpu_glyph::GlyphBrush<'static, ()>,
+    //glyph_brush: wgpu_glyph::GlyphBrush<()>,
     square_buffer: wgpu::Buffer,
     uniform_buffer: wgpu::Buffer,
     instance_buffer: GpuBuffer<Instance>,
@@ -46,64 +47,52 @@ impl Renderer {
                 .expect("couldn't append canvas to document body");
         }
 
-        let instance = wgpu::Instance::new();
+        let instance = wgpu::Instance::new(wgpu::BackendBit::PRIMARY);
         let surface = unsafe {
             instance.create_surface(&window)
         };
 
-        let adapter = instance.request_adapter(
-            &wgpu::RequestAdapterOptions {
-                power_preference: wgpu::PowerPreference::Default,
-                compatible_surface: None,
-            },
-            wgpu::BackendBit::PRIMARY,
-        )
-        .await
-        .unwrap();
+        let adapter = instance.request_adapter(&wgpu::RequestAdapterOptions {
+            power_preference: wgpu::PowerPreference::default(),
+            compatible_surface: None,
+        })
+            .await
+            .unwrap();
     
         let (device, queue) = adapter.request_device(&wgpu::DeviceDescriptor {
-            extensions: wgpu::Extensions {
-                anisotropic_filtering: false,
-            },
+            features: wgpu::Features::empty(),
             limits: wgpu::Limits::default(),
+            shader_validation: true,
         }, Some(&std::path::Path::new("trace"))).await.unwrap();
 
-        let vs = include_bytes!("shader.vert.spv");
-        let vs_module =
-            device.create_shader_module(&wgpu::read_spirv(std::io::Cursor::new(&vs[..])).unwrap());
+        let vs = wgpu::include_spirv!("shader.vert.spv");
+        let vs_module = device.create_shader_module(vs);
     
-        let fs = include_bytes!("shader.frag.spv");
-        let fs_module =
-            device.create_shader_module(&wgpu::read_spirv(std::io::Cursor::new(&fs[..])).unwrap());
+        let fs = wgpu::include_spirv!("shader.frag.spv");
+        let fs_module = device.create_shader_module(fs);
     
         let fonts: &[&[u8]] = &[
             include_bytes!("fonts/OldeEnglish.ttf"),
             include_bytes!("fonts/TinyUnicode.ttf")
         ];
 
-        let glyph_brush = wgpu_glyph::GlyphBrushBuilder::using_fonts_bytes(fonts)
+        /*let glyph_brush = wgpu_glyph::GlyphBrushBuilder::using_fonts_bytes(fonts)
             .unwrap()
             .texture_filter_method(wgpu::FilterMode::Nearest)
-            .build(&device, wgpu::TextureFormat::Bgra8Unorm);
+            .build(&device, wgpu::TextureFormat::Bgra8Unorm);*/
 
         let mut init_encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("Hectic init CommandEncoder") });
         let texture = crate::graphics::load_packed(&device, &mut init_encoder);
         let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
-            address_mode_u: wgpu::AddressMode::Repeat,
-            address_mode_v: wgpu::AddressMode::Repeat,
-            address_mode_w: wgpu::AddressMode::Repeat,
             mag_filter: wgpu::FilterMode::Nearest,
             min_filter: wgpu::FilterMode::Nearest,
-            mipmap_filter: wgpu::FilterMode::Nearest,
-            lod_min_clamp: 0.0,
-            lod_max_clamp: 0.0,
-            compare: wgpu::CompareFunction::Undefined,
-            label: Some("Hectic Sampler")
+            label: Some("Hectic Sampler"),
+            ..Default::default()
         });
 
         let bind_group_layout =
             device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                bindings: &[
+                entries: &[
                     wgpu::BindGroupLayoutEntry {
                         binding: 0,
                         visibility: wgpu::ShaderStage::FRAGMENT,
@@ -112,16 +101,19 @@ impl Renderer {
                             dimension: wgpu::TextureViewDimension::D2,
                             component_type: wgpu::TextureComponentType::Float,
                         },
+                        count: None,
                     },
                     wgpu::BindGroupLayoutEntry {
                         binding: 1,
                         visibility: wgpu::ShaderStage::FRAGMENT,
                         ty: wgpu::BindingType::Sampler { comparison: false },
+                        count: None,
                     },
                     wgpu::BindGroupLayoutEntry {
                         binding: 2,
                         visibility: wgpu::ShaderStage::VERTEX,
-                        ty: wgpu::BindingType::UniformBuffer { dynamic: false },
+                        ty: wgpu::BindingType::UniformBuffer { dynamic: false, min_binding_size: None },
+                        count: None,
                     }
                 ],
                 label: Some("Hectic BindGroupLayout"),
@@ -129,36 +121,42 @@ impl Renderer {
 
         let window_size = window.inner_size();
 
-        let uniform_buffer = device.create_buffer_with_data(
-            Uniforms::new(window_size.width, window_size.height).as_bytes(),
-            wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST
-        );
+        let uniform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: None,
+            contents: Uniforms::new(window_size.width, window_size.height).as_bytes(),
+            usage: wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
+        });
 
         let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             layout: &bind_group_layout,
-            bindings: &[
-                wgpu::Binding {
+            entries: &[
+                wgpu::BindGroupEntry {
                     binding: 0,
                     resource: wgpu::BindingResource::TextureView(&texture),
                 },
-                wgpu::Binding {
+                wgpu::BindGroupEntry {
                     binding: 1,
                     resource: wgpu::BindingResource::Sampler(&sampler),
                 },
-                wgpu::Binding {
+                wgpu::BindGroupEntry {
                     binding: 2,
-                    resource: wgpu::BindingResource::Buffer(uniform_buffer.slice(0 .. std::mem::size_of::<Uniforms>() as u64))
+                    resource: wgpu::BindingResource::Buffer(
+                        uniform_buffer.slice(0 .. std::mem::size_of::<Uniforms>() as u64)
+                    )
                 }
             ],
             label: Some("Hectic BindGroup"),
         });
 
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+            label: Some("Hectic PipelineLayout"),
             bind_group_layouts: &[&bind_group_layout],
+            push_constant_ranges: &[]
         });
 
         let pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-            layout: &pipeline_layout,
+            label: Some("Hectic RenderPipeline"),
+            layout: Some(&pipeline_layout),
             vertex_stage: wgpu::ProgrammableStageDescriptor {
                 module: &vs_module,
                 entry_point: "main",
@@ -167,13 +165,7 @@ impl Renderer {
                 module: &fs_module,
                 entry_point: "main",
             }),
-            rasterization_state: Some(wgpu::RasterizationStateDescriptor {
-                front_face: wgpu::FrontFace::Ccw,
-                cull_mode: wgpu::CullMode::None,
-                depth_bias: 0,
-                depth_bias_slope_scale: 0.0,
-                depth_bias_clamp: 0.0,
-            }),
+            rasterization_state: Some(wgpu::RasterizationStateDescriptor::default()),
             primitive_topology: wgpu::PrimitiveTopology::TriangleList,
             color_states: &[wgpu::ColorStateDescriptor {
                 format: wgpu::TextureFormat::Bgra8Unorm,
@@ -223,17 +215,22 @@ impl Renderer {
         queue.submit(Some(init_encoder.finish()));
 
         let buffer_renderer = BufferRenderer {
-            glyph_sections: Vec::new(),
+            //glyph_sections: Vec::new(),
             instances: Vec::new(),
             window_size: Vector2::new(window_size.width as f32, window_size.height as f32),
         };
 
         let instance_buffer = GpuBuffer::new(&device, 500);
 
+        let square_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: None,
+            contents: SQUARE.as_bytes(),
+            usage: wgpu::BufferUsage::VERTEX,
+        });
+
         let renderer = Self {
-            square_buffer: device.create_buffer_with_data(SQUARE.as_bytes(), wgpu::BufferUsage::VERTEX),
-            swap_chain, pipeline, window, device, queue, swap_chain_desc, surface, bind_group, glyph_brush,
-            uniform_buffer, instance_buffer
+            square_buffer, swap_chain, pipeline, window, device, queue, swap_chain_desc, surface,
+            bind_group, uniform_buffer, instance_buffer,
         };
 
         (renderer, buffer_renderer)
@@ -244,7 +241,12 @@ impl Renderer {
         self.swap_chain_desc.height = height;
         self.swap_chain = self.device.create_swap_chain(&self.surface, &self.swap_chain_desc);
 
-        let staging_buffer = self.device.create_buffer_with_data(Uniforms::new(width, height).as_bytes(), wgpu::BufferUsage::COPY_SRC);
+        let staging_buffer = self.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: None,
+            contents: Uniforms::new(width, height).as_bytes(),
+            usage: wgpu::BufferUsage::COPY_SRC,
+        });
+
         let mut encoder = self.device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("Hectic CommandEncoder") });
         encoder.copy_buffer_to_buffer(&staging_buffer, 0, &self.uniform_buffer, 0, std::mem::size_of::<Uniforms>() as u64);
         self.queue.submit(Some(encoder.finish()));
@@ -254,7 +256,7 @@ impl Renderer {
         let offset = renderer.centering_offset() / 2.0;
         let dimensions = renderer.dimensions();
 
-        if let Ok(frame) = self.swap_chain.get_next_texture() {
+        if let Ok(frame) = self.swap_chain.get_current_frame() {
             let mut encoder = self.device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("Hectic CommandEncoder") });
 
             if !renderer.instances.is_empty() {
@@ -264,11 +266,12 @@ impl Renderer {
             {
                 let mut rpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                     color_attachments: &[wgpu::RenderPassColorAttachmentDescriptor {
-                        attachment: &frame.view,
+                        attachment: &frame.output.view,
                         resolve_target: None,
-                        load_op: wgpu::LoadOp::Clear,
-                        store_op: wgpu::StoreOp::Store,
-                        clear_color: wgpu::Color { r: 0.5, g: 0.125, b: 0.125, a: 1.0 },
+                        ops: wgpu::Operations {
+                            load: wgpu::LoadOp::Clear(wgpu::Color { r: 0.5, g: 0.125, b: 0.125, a: 1.0 }),
+                            store: true,
+                        },
                     }],
                     depth_stencil_attachment: None,
                 });
@@ -287,7 +290,7 @@ impl Renderer {
                 }
             }
 
-            for section in renderer.glyph_sections.drain(..) {
+            /*for section in renderer.glyph_sections.drain(..) {
                 let layout = wgpu_glyph::PixelPositioner(section.layout);
                 self.glyph_brush.queue_custom_layout(&section, &layout);
             }
@@ -305,7 +308,7 @@ impl Renderer {
             self.glyph_brush.draw_queued_with_transform_and_scissoring(
                 &self.device,
                 &mut encoder,
-                &frame.view,
+                &frame.output.view,
                 orthographic_projection(renderer.window_size.x, renderer.window_size.y),
                 wgpu_glyph::Region { x: offset.x as u32, y: offset.y as u32, width: dimensions.x as u32, height: dimensions.y as u32 },
             ).unwrap();
@@ -313,10 +316,10 @@ impl Renderer {
             self.glyph_brush.draw_queued(
                 &self.device,
                 &mut encoder,
-                &frame.view,
+                &frame.output.view,
                 self.swap_chain_desc.width,
                 self.swap_chain_desc.height,
-            ).unwrap();
+            ).unwrap();*/
 
             self.queue.submit(Some(encoder.finish()));    
         }
@@ -344,6 +347,7 @@ impl<T: AsBytes> GpuBuffer<T> {
                 label: None,
                 size: (base_capacity * std::mem::size_of::<T>()) as u64,
                 usage: wgpu::BufferUsage::VERTEX | wgpu::BufferUsage::COPY_DST,
+                mapped_at_creation: false,
             }),
             len: 0,
             _phantom: std::marker::PhantomData,
@@ -352,20 +356,25 @@ impl<T: AsBytes> GpuBuffer<T> {
 
     fn upload(&mut self, device: &wgpu::Device, encoder: &mut wgpu::CommandEncoder, items: &[T]) {
         if items.len() <= self.capacity {
-            let staging_buffer = device.create_buffer_with_data(items.as_bytes(), wgpu::BufferUsage::COPY_SRC);
+            let staging_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: None,
+                contents: items.as_bytes(),
+                usage: wgpu::BufferUsage::COPY_SRC,
+            });
             encoder.copy_buffer_to_buffer(&staging_buffer, 0, &self.buffer, 0, items.as_bytes().len() as u64);
             self.len = items.len();
         } else {
             self.capacity = self.capacity * 2;
             println!("resizing to {} items", self.capacity);
-            let mut buffer = device.create_buffer_mapped(&wgpu::BufferDescriptor {
+            self.buffer = device.create_buffer(&wgpu::BufferDescriptor {
                 label: None,
                 size: (self.capacity * std::mem::size_of::<T>()) as u64,
                 usage: wgpu::BufferUsage::VERTEX | wgpu::BufferUsage::COPY_DST,
+                mapped_at_creation: true,
             });
-            let byte_len = items.as_bytes().len();
-            buffer.data()[..byte_len].copy_from_slice(items.as_bytes());
-            self.buffer = buffer.finish();
+            let byte_len = items.as_bytes().len() as u64;
+            self.buffer.slice(..byte_len).get_mapped_range_mut().copy_from_slice(items.as_bytes());
+            self.buffer.unmap();
             self.len = items.len();
         }
     }
@@ -424,7 +433,7 @@ pub struct BufferRenderer {
     // We can't store a GlyphBrush directly here because on wasm the buffer
     // is a js type and thus not threadsafe.
     // todo: maybe store something lighter here so we can use cow strs
-    glyph_sections: Vec<wgpu_glyph::OwnedVariedSection<wgpu_glyph::DrawMode>>,
+    //glyph_sections: Vec<wgpu_glyph::OwnedVariedSection<wgpu_glyph::DrawMode>>,
     instances: Vec<Instance>,
 }
 
@@ -483,7 +492,7 @@ impl BufferRenderer {
     }
 
     pub fn render_text(&mut self, text: &Text, mut pos: Vector2<f32>, color: [f32; 4]) {
-        pos += self.centering_offset() / self.scale_factor() / 2.0;
+        /*pos += self.centering_offset() / self.scale_factor() / 2.0;
 
         let scale = match text.font {
             0 => 160.0,
@@ -506,7 +515,7 @@ impl BufferRenderer {
             ..wgpu_glyph::OwnedVariedSection::default()
         };
 
-        self.glyph_sections.push(section);
+        self.glyph_sections.push(section);*/
     }
 
     pub fn render_circle(&mut self, center: Vector2<f32>, radius: f32) {
