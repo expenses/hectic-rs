@@ -21,7 +21,7 @@ pub struct Renderer {
     glyph_brush: wgpu_glyph::GlyphBrush<(), wgpu_glyph::ab_glyph::FontRef<'static>>,
     square_buffer: wgpu::Buffer,
     uniform_buffer: wgpu::Buffer,
-    instance_buffer: GpuBuffer<Instance>,
+    instance_buffer: GpuBuffer<'static, Instance>,
 }
 
 impl Renderer {
@@ -219,7 +219,7 @@ impl Renderer {
             window_size: Vector2::new(window_size.width as f32, window_size.height as f32),
         };
 
-        let instance_buffer = GpuBuffer::new(&device, 500);
+        let instance_buffer = GpuBuffer::new(&device, 2560, "Hectic instances buffer");
 
         let square_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Hectic square buffer"),
@@ -326,24 +326,26 @@ impl Renderer {
     }
 }
 
-struct GpuBuffer<T> {
+struct GpuBuffer<'a, T> {
     buffer: wgpu::Buffer,
     capacity: usize,
     len: usize,
+    label: &'a str,
     _phantom: std::marker::PhantomData<T>,
 }
 
-impl<T: AsBytes> GpuBuffer<T> {
-    fn new(device: &wgpu::Device, base_capacity: usize) -> Self {
+impl<'a, T: AsBytes> GpuBuffer<'a, T> {
+    fn new(device: &wgpu::Device, base_capacity: usize, label: &'a str) -> Self {
         Self {
             capacity: base_capacity,
             buffer: device.create_buffer(&wgpu::BufferDescriptor {
-                label: Some("Hectic instance buffer"),
+                label: Some(label),
                 size: (base_capacity * std::mem::size_of::<T>()) as u64,
                 usage: wgpu::BufferUsage::VERTEX | wgpu::BufferUsage::COPY_DST,
                 mapped_at_creation: false,
             }),
             len: 0,
+            label,
             _phantom: std::marker::PhantomData,
         }
     }
@@ -356,7 +358,7 @@ impl<T: AsBytes> GpuBuffer<T> {
 
         if items.len() <= self.capacity {
             let staging_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                label: Some("Hectic instance staging buffer"),
+                label: Some("Gpu upload staging buffer"),
                 contents: items.as_bytes(),
                 usage: wgpu::BufferUsage::COPY_SRC,
             });
@@ -366,7 +368,7 @@ impl<T: AsBytes> GpuBuffer<T> {
             self.capacity = self.capacity * 2;
             println!("resizing to {} items", self.capacity);
             self.buffer = device.create_buffer(&wgpu::BufferDescriptor {
-                label: Some("Hectic instance buffer"),
+                label: Some(self.label),
                 size: (self.capacity * std::mem::size_of::<T>()) as u64,
                 usage: wgpu::BufferUsage::VERTEX | wgpu::BufferUsage::COPY_DST,
                 mapped_at_creation: true,
