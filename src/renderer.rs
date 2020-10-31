@@ -258,6 +258,8 @@ impl Renderer {
         if let Ok(frame) = self.swap_chain.get_current_frame() {
             let mut encoder = self.device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("Hectic CommandEncoder") });
 
+            renderer.render_borders();
+
             self.instance_buffer.upload(&self.device, &mut encoder, &renderer.instances);
 
             {
@@ -274,9 +276,6 @@ impl Renderer {
                 });
 
                 if self.instance_buffer.len > 0 {
-                    #[cfg(feature = "native")]
-                    rpass.set_scissor_rect(offset.x as u32, offset.y as u32, dimensions.x as u32, dimensions.y as u32);
-
                     rpass.set_pipeline(&self.pipeline);
                     rpass.set_bind_group(0, &self.bind_group, &[]);
 
@@ -530,6 +529,22 @@ impl BufferRenderer {
             let position = ((position - center) * 2.0) + center;
 
             self.render_box(position, Vector2::new(2.0, 2.0), [1.0; 4]);
+        }
+    }
+
+    pub fn render_borders(&mut self) {
+        let colour = [0.5, 0.125, 0.125, 1.0];
+        let border_width = ((self.window_size.x / self.scale_factor()) - WIDTH) / 2.0;
+        if border_width > 0.0 {
+            self.render_box(Vector2::new(-border_width / 2.0, 0.0),        Vector2::new(border_width, HEIGHT * 2.0), colour);
+            self.render_box(Vector2::new(WIDTH + border_width / 2.0, 0.0), Vector2::new(border_width, HEIGHT * 2.0), colour);
+        }
+
+        let border_height = ((self.window_size.y / self.scale_factor()) - HEIGHT) / 2.0;
+
+        if border_height > 0.0 {
+            self.render_box(Vector2::new(0.0, -border_height / 2.0), Vector2::new(WIDTH * 2.0, border_height), colour);
+            self.render_box(Vector2::new(0.0, HEIGHT + border_height / 2.0), Vector2::new(WIDTH * 2.0, border_height), colour);
         }
     }
 }
