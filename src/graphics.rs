@@ -5,7 +5,7 @@ fn load_png(bytes: &'static [u8], device: &wgpu::Device, encoder: &mut wgpu::Com
         .into_rgba();
 
     let temp_buf = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-        label: None,
+        label: Some("Hectic load_png buffer"),
         contents: &*image,
         usage: wgpu::BufferUsage::COPY_SRC,
     });
