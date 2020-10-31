@@ -18,7 +18,7 @@ pub struct Renderer {
     swap_chain_desc: wgpu::SwapChainDescriptor,
     surface: wgpu::Surface,
     bind_group: wgpu::BindGroup,
-    //glyph_brush: wgpu_glyph::GlyphBrush<()>,
+    glyph_brush: wgpu_glyph::GlyphBrush<(), wgpu_glyph::ab_glyph::FontRef<'static>>,
     square_buffer: wgpu::Buffer,
     uniform_buffer: wgpu::Buffer,
     instance_buffer: GpuBuffer<Instance>,
@@ -71,15 +71,14 @@ impl Renderer {
         let fs = wgpu::include_spirv!("shader.frag.spv");
         let fs_module = device.create_shader_module(fs);
     
-        let fonts: &[&[u8]] = &[
-            include_bytes!("fonts/OldeEnglish.ttf"),
-            include_bytes!("fonts/TinyUnicode.ttf")
+        let fonts = vec![
+            wgpu_glyph::ab_glyph::FontRef::try_from_slice(include_bytes!("fonts/OldeEnglish.ttf")).unwrap(),
+            wgpu_glyph::ab_glyph::FontRef::try_from_slice(include_bytes!("fonts/TinyUnicode.ttf")).unwrap()
         ];
 
-        /*let glyph_brush = wgpu_glyph::GlyphBrushBuilder::using_fonts_bytes(fonts)
-            .unwrap()
+        let glyph_brush = wgpu_glyph::GlyphBrushBuilder::using_fonts(fonts)
             .texture_filter_method(wgpu::FilterMode::Nearest)
-            .build(&device, wgpu::TextureFormat::Bgra8Unorm);*/
+            .build(&device, wgpu::TextureFormat::Bgra8Unorm);
 
         let mut init_encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("Hectic init CommandEncoder") });
         let texture = crate::graphics::load_packed(&device, &mut init_encoder);
@@ -215,7 +214,7 @@ impl Renderer {
         queue.submit(Some(init_encoder.finish()));
 
         let buffer_renderer = BufferRenderer {
-            //glyph_sections: Vec::new(),
+            glyph_sections: Vec::new(),
             instances: Vec::new(),
             window_size: Vector2::new(window_size.width as f32, window_size.height as f32),
         };
@@ -230,7 +229,7 @@ impl Renderer {
 
         let renderer = Self {
             square_buffer, swap_chain, pipeline, window, device, queue, swap_chain_desc, surface,
-            bind_group, uniform_buffer, instance_buffer,
+            bind_group, uniform_buffer, instance_buffer, glyph_brush,
         };
 
         (renderer, buffer_renderer)
@@ -290,36 +289,33 @@ impl Renderer {
                 }
             }
 
-            /*for section in renderer.glyph_sections.drain(..) {
-                let layout = wgpu_glyph::PixelPositioner(section.layout);
-                self.glyph_brush.queue_custom_layout(&section, &layout);
-            }
+            let mut staging_belt = wgpu::util::StagingBelt::new(100);
 
-            fn orthographic_projection(width: f32, height: f32) -> [f32; 16] {
-                [
-                    2.0 / width, 0.0, 0.0, 0.0,
-                    0.0, -2.0 / height, 0.0, 0.0,
-                    0.0, 0.0, 1.0, 0.0,
-                    -1.0, 1.0, 0.0, 1.0,
-                ]
+            for section in renderer.glyph_sections.drain(..) {
+                let layout = wgpu_glyph::PixelPositioner(section.layout);
+                self.glyph_brush.queue_custom_layout(&section.to_borrowed(), &layout);
             }
 
             #[cfg(feature = "native")]
             self.glyph_brush.draw_queued_with_transform_and_scissoring(
                 &self.device,
+                &mut staging_belt,
                 &mut encoder,
                 &frame.output.view,
-                orthographic_projection(renderer.window_size.x, renderer.window_size.y),
+                wgpu_glyph::orthographic_projection(renderer.window_size.x as u32, renderer.window_size.y as u32),
                 wgpu_glyph::Region { x: offset.x as u32, y: offset.y as u32, width: dimensions.x as u32, height: dimensions.y as u32 },
             ).unwrap();
             #[cfg(feature = "wasm")]
             self.glyph_brush.draw_queued(
                 &self.device,
+                &mut staging_belt,
                 &mut encoder,
                 &frame.output.view,
                 self.swap_chain_desc.width,
                 self.swap_chain_desc.height,
-            ).unwrap();*/
+            ).unwrap();
+
+            staging_belt.finish();
 
             self.queue.submit(Some(encoder.finish()));    
         }
@@ -433,7 +429,7 @@ pub struct BufferRenderer {
     // We can't store a GlyphBrush directly here because on wasm the buffer
     // is a js type and thus not threadsafe.
     // todo: maybe store something lighter here so we can use cow strs
-    //glyph_sections: Vec<wgpu_glyph::OwnedVariedSection<wgpu_glyph::DrawMode>>,
+    glyph_sections: Vec<glyph_brush::OwnedSection<wgpu_glyph::Extra>>,
     instances: Vec<Instance>,
 }
 
@@ -492,7 +488,7 @@ impl BufferRenderer {
     }
 
     pub fn render_text(&mut self, text: &Text, mut pos: Vector2<f32>, color: [f32; 4]) {
-        /*pos += self.centering_offset() / self.scale_factor() / 2.0;
+        pos += self.centering_offset() / self.scale_factor() / 2.0;
 
         let scale = match text.font {
             0 => 160.0,
@@ -500,22 +496,27 @@ impl BufferRenderer {
             _ => unreachable!()
         };
 
-        let section = wgpu_glyph::OwnedVariedSection {
+        let section = glyph_brush::OwnedSection {
             screen_position: (pos * self.scale_factor()).into(),
             layout: text.layout,
             text: vec![
-                wgpu_glyph::OwnedSectionText {
+                glyph_brush::OwnedText {
                     text: text.text.clone(),
-                    scale: wgpu_glyph::Scale::uniform(scale * self.scale_factor()),
-                    color,
+                    scale: (scale * self.scale_factor()).into(),
                     font_id: wgpu_glyph::FontId(text.font),
-                    custom: wgpu_glyph::DrawMode::pixelated(2.0 * self.scale_factor()),
+                    extra: wgpu_glyph::Extra {
+                        other: glyph_brush::Extra {
+                            color,
+                            ..Default::default()
+                        },
+                        draw_mode: wgpu_glyph::DrawMode::Pixelated(2.0 * self.scale_factor()),
+                    }
                 }
             ],
-            ..wgpu_glyph::OwnedVariedSection::default()
+            ..Default::default()
         };
 
-        self.glyph_sections.push(section);*/
+        self.glyph_sections.push(section);
     }
 
     pub fn render_circle(&mut self, center: Vector2<f32>, radius: f32) {

@@ -958,6 +958,7 @@ dependencies = [
  "either",
  "env_logger",
  "futures",
+ "glyph_brush",
  "image",
  "line_drawing",
  "log",
