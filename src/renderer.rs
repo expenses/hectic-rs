@@ -257,9 +257,7 @@ impl Renderer {
         if let Ok(frame) = self.swap_chain.get_next_texture() {
             let mut encoder = self.device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("Hectic CommandEncoder") });
 
-            if !renderer.instances.is_empty() {
-                self.instance_buffer.upload(&self.device, &mut encoder, &renderer.instances);
-            }
+            self.instance_buffer.upload(&self.device, &mut encoder, &renderer.instances);
 
             {
                 let mut rpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
@@ -351,6 +349,11 @@ impl<T: AsBytes> GpuBuffer<T> {
     }
 
     fn upload(&mut self, device: &wgpu::Device, encoder: &mut wgpu::CommandEncoder, items: &[T]) {
+        if items.is_empty() {
+            self.len = 0;
+            return;
+        }
+
         if items.len() <= self.capacity {
             let staging_buffer = device.create_buffer_with_data(items.as_bytes(), wgpu::BufferUsage::COPY_SRC);
             encoder.copy_buffer_to_buffer(&staging_buffer, 0, &self.buffer, 0, items.as_bytes().len() as u64);
