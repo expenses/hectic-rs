@@ -163,7 +163,10 @@ impl<'a> System<'a> for RenderMenu {
 
             let mut x = 190.0;
 
-            for (i, item) in menu.items.iter().enumerate() {
+            let items_that_can_fit_onscreen = 22;
+            let items_to_skip = (*menu.selected).saturating_sub(items_that_can_fit_onscreen - 1);
+
+            for (i, item) in menu.items.iter().enumerate().skip(items_to_skip) {
                 renderer.render_text(&Text {
                     text: if i == *menu.selected { format!("> {}", item.text) } else { item.text.to_string() },
                     font: 1,
