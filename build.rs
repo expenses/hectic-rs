@@ -4,6 +4,8 @@ use std::env;
 fn main() {
     let out_dir = env::var("OUT_DIR").unwrap();
 
+    println!("cargo:rerun-if-changed=src/images");
+
     yaap::pack(
         std::fs::read_dir("src/images").unwrap().map(|x| x.unwrap().path()),
         Path::new(&out_dir).join("packed.png"),
