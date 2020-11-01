@@ -300,7 +300,7 @@ impl Renderer {
                 &mut encoder,
                 &frame.output.view,
                 wgpu_glyph::orthographic_projection(renderer.window_size.x as u32, renderer.window_size.y as u32),
-                wgpu_glyph::Region { x: offset.x as u32, y: offset.y as u32, width: dimensions.x as u32, height: dimensions.y as u32 },
+                wgpu_glyph::Region { x: 0, y: offset.y as u32, width: renderer.window_size.x as u32, height: dimensions.y as u32 },
             ).unwrap();
             #[cfg(feature = "wasm")]
             self.glyph_brush.draw_queued(
