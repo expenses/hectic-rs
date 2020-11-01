@@ -365,7 +365,7 @@ impl<'a, T: AsBytes> GpuBuffer<'a, T> {
             self.len = items.len();
         } else {
             self.capacity = self.capacity * 2;
-            println!("resizing to {} items", self.capacity);
+            log::debug!("Resizing buffer {} to {} items", self.label, self.capacity);
             self.buffer = device.create_buffer(&wgpu::BufferDescriptor {
                 label: Some(self.label),
                 size: (self.capacity * std::mem::size_of::<T>()) as u64,
