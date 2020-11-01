@@ -256,7 +256,7 @@ pub fn stage_two(entities: &Entities, updater: &LazyUpdate, multiplayer: bool, t
         }
     }
 
-    boss_two(builder, 55.0);
+    boss_two(builder, 50.0);
 }
 
 fn flying_skull(builder: &EntityBuilder, start: f32, position: Vector2<f32>) {
