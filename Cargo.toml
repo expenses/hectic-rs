@@ -10,7 +10,7 @@ edition = "2018"
 specs = { version = "0.16.1", default-features = false, features = ["specs-derive"] }
 winit = { version = "0.23.0", features = ["web-sys", "serde"] }
 wgpu = "0.6"
-image = { version = "0.23.11", default-features = false, features = ["png"] }
+image = { version = "0.23.12", default-features = false, features = ["png"] }
 rand = { version = "0.7.3", features = ["wasm-bindgen"] }
 arrayvec = "0.5.2"
 futures = "0.3.7"
