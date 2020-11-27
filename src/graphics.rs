@@ -2,7 +2,7 @@ use wgpu::util::DeviceExt;
 
 fn load_png(bytes: &'static [u8], device: &wgpu::Device, encoder: &mut wgpu::CommandEncoder) -> wgpu::TextureView {
     let image = image::load_from_memory_with_format(bytes, image::ImageFormat::Png).unwrap()
-        .into_rgba();
+        .into_rgba8();
 
     let temp_buf = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
         label: Some("Hectic load_png buffer"),

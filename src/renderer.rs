@@ -60,6 +60,7 @@ impl Renderer {
             .unwrap();
     
         let (device, queue) = adapter.request_device(&wgpu::DeviceDescriptor {
+            label: Some("Hectic device"),
             features: wgpu::Features::empty(),
             limits: wgpu::Limits::default(),
             shader_validation: true,
@@ -139,9 +140,11 @@ impl Renderer {
                 },
                 wgpu::BindGroupEntry {
                     binding: 2,
-                    resource: wgpu::BindingResource::Buffer(
-                        uniform_buffer.slice(0 .. std::mem::size_of::<Uniforms>() as u64)
-                    )
+                    resource: wgpu::BindingResource::Buffer {
+                        buffer: &uniform_buffer,
+                        offset: 0,
+                        size: None,
+                    }
                 }
             ],
             label: Some("Hectic BindGroup"),
@@ -202,7 +205,7 @@ impl Renderer {
         });
     
         let swap_chain_desc = wgpu::SwapChainDescriptor {
-            usage: wgpu::TextureUsage::OUTPUT_ATTACHMENT,
+            usage: wgpu::TextureUsage::RENDER_ATTACHMENT,
             format: wgpu::TextureFormat::Bgra8Unorm,
             width: window_size.width,
             height: window_size.height,
