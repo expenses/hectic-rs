@@ -18,7 +18,6 @@ pub struct Renderer {
     swap_chain_desc: wgpu::SwapChainDescriptor,
     surface: wgpu::Surface,
     bind_group: wgpu::BindGroup,
-    glyph_brush: wgpu_glyph::GlyphBrush<(), wgpu_glyph::ab_glyph::FontRef<'static>>,
     square_buffer: wgpu::Buffer,
     uniform_buffer: wgpu::Buffer,
     instance_buffer: GpuBuffer<'static, Instance>,
@@ -27,9 +26,6 @@ pub struct Renderer {
 impl Renderer {
     pub async fn new(event_loop: &EventLoop<()>) -> (Self, BufferRenderer) {
         let window = Window::new(event_loop).unwrap();
-
-        //#[cfg(feature = "native")]
-        //window.set_fullscreen(Some(Fullscreen::Borderless(event_loop.primary_monitor())));
 
         #[cfg(feature = "wasm")]
         {
@@ -72,15 +68,6 @@ impl Renderer {
         let fs = wgpu::include_spirv!("shader.frag.spv");
         let fs_module = device.create_shader_module(fs);
     
-        let fonts = vec![
-            wgpu_glyph::ab_glyph::FontRef::try_from_slice(include_bytes!("fonts/OldeEnglish.ttf")).unwrap(),
-            wgpu_glyph::ab_glyph::FontRef::try_from_slice(include_bytes!("fonts/TinyUnicode.ttf")).unwrap()
-        ];
-
-        let glyph_brush = wgpu_glyph::GlyphBrushBuilder::using_fonts(fonts)
-            .texture_filter_method(wgpu::FilterMode::Nearest)
-            .build(&device, wgpu::TextureFormat::Bgra8Unorm);
-
         let mut init_encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("Hectic init CommandEncoder") });
         let texture = crate::graphics::load_packed(&device, &mut init_encoder);
         let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
@@ -96,23 +83,30 @@ impl Renderer {
                     wgpu::BindGroupLayoutEntry {
                         binding: 0,
                         visibility: wgpu::ShaderStage::FRAGMENT,
-                        ty: wgpu::BindingType::SampledTexture {
+                        ty: wgpu::BindingType::Texture {
+                            sample_type: wgpu::TextureSampleType::Float { filterable: false },
                             multisampled: false,
-                            dimension: wgpu::TextureViewDimension::D2,
-                            component_type: wgpu::TextureComponentType::Float,
+                            view_dimension: wgpu::TextureViewDimension::D2,
                         },
                         count: None,
                     },
                     wgpu::BindGroupLayoutEntry {
                         binding: 1,
                         visibility: wgpu::ShaderStage::FRAGMENT,
-                        ty: wgpu::BindingType::Sampler { comparison: false },
+                        ty: wgpu::BindingType::Sampler {
+                            comparison: false,
+                            filtering: false,
+                        },
                         count: None,
                     },
                     wgpu::BindGroupLayoutEntry {
                         binding: 2,
                         visibility: wgpu::ShaderStage::VERTEX,
-                        ty: wgpu::BindingType::UniformBuffer { dynamic: false, min_binding_size: None },
+                        ty: wgpu::BindingType::Buffer {
+                            ty: wgpu::BufferBindingType::Uniform,
+                            has_dynamic_offset: false,
+                            min_binding_size: None,
+                        },
                         count: None,
                     }
                 ],
@@ -216,10 +210,19 @@ impl Renderer {
 
         queue.submit(Some(init_encoder.finish()));
 
+        let fonts = vec![
+            wgpu_glyph::ab_glyph::FontRef::try_from_slice(include_bytes!("fonts/OldeEnglish.ttf")).unwrap(),
+            wgpu_glyph::ab_glyph::FontRef::try_from_slice(include_bytes!("fonts/TinyUnicode.ttf")).unwrap()
+        ];
+
+        let glyph_brush = wgpu_glyph::GlyphBrushBuilder::using_fonts(fonts.clone())
+            .texture_filter_method(wgpu::FilterMode::Nearest)
+            .build(&device, wgpu::TextureFormat::Bgra8Unorm);
+
         let buffer_renderer = BufferRenderer {
-            glyph_sections: Vec::new(),
             instances: Vec::new(),
             window_size: Vector2::new(window_size.width as f32, window_size.height as f32),
+            glyph_brush,
         };
 
         let instance_buffer = GpuBuffer::new(&device, 2560, "Hectic instances buffer");
@@ -232,7 +235,7 @@ impl Renderer {
 
         let renderer = Self {
             square_buffer, swap_chain, pipeline, window, device, queue, swap_chain_desc, surface,
-            bind_group, uniform_buffer, instance_buffer, glyph_brush,
+            bind_group, uniform_buffer, instance_buffer,
         };
 
         (renderer, buffer_renderer)
@@ -291,13 +294,8 @@ impl Renderer {
 
             let mut staging_belt = wgpu::util::StagingBelt::new(100);
 
-            for section in renderer.glyph_sections.drain(..) {
-                let layout = wgpu_glyph::PixelPositioner(section.layout);
-                self.glyph_brush.queue_custom_layout(&section.to_borrowed(), &layout);
-            }
-
             #[cfg(feature = "native")]
-            self.glyph_brush.draw_queued_with_transform_and_scissoring(
+            renderer.glyph_brush.draw_queued_with_transform_and_scissoring(
                 &self.device,
                 &mut staging_belt,
                 &mut encoder,
@@ -306,7 +304,7 @@ impl Renderer {
                 wgpu_glyph::Region { x: 0, y: offset.y as u32, width: renderer.window_size.x as u32, height: dimensions.y as u32 },
             ).unwrap();
             #[cfg(feature = "wasm")]
-            self.glyph_brush.draw_queued(
+            renderer.glyph_brush.draw_queued(
                 &self.device,
                 &mut staging_belt,
                 &mut encoder,
@@ -433,10 +431,7 @@ impl Uniforms {
 
 pub struct BufferRenderer {
     window_size: Vector2<f32>,
-    // We can't store a GlyphBrush directly here because on wasm the buffer
-    // is a js type and thus not threadsafe.
-    // todo: maybe store something lighter here so we can use cow strs
-    glyph_sections: Vec<glyph_brush::OwnedSection<wgpu_glyph::Extra>>,
+    glyph_brush: wgpu_glyph::GlyphBrush<(), wgpu_glyph::ab_glyph::FontRef<'static>>,
     instances: Vec<Instance>,
 }
 
@@ -503,27 +498,25 @@ impl BufferRenderer {
             _ => unreachable!()
         };
 
-        let section = glyph_brush::OwnedSection {
-            screen_position: (pos * self.scale_factor()).into(),
-            layout: text.layout,
-            text: vec![
-                glyph_brush::OwnedText {
-                    text: text.text.clone(),
-                    scale: (scale * self.scale_factor()).into(),
-                    font_id: wgpu_glyph::FontId(text.font),
-                    extra: wgpu_glyph::Extra {
-                        other: glyph_brush::Extra {
-                            color,
-                            ..Default::default()
-                        },
-                        draw_mode: wgpu_glyph::DrawMode::Pixelated(2.0 * self.scale_factor()),
-                    }
-                }
-            ],
-            ..Default::default()
-        };
+        let section = glyph_brush::Section::<wgpu_glyph::Extra>::new()
+            .with_screen_position(pos * self.scale_factor())
+            .with_layout(text.layout)
+            .add_text(glyph_brush::Text::<wgpu_glyph::Extra> {
+                text: &text.text,
+                scale: (scale * self.scale_factor()).into(),
+                font_id: glyph_brush::FontId(text.font),
+                extra: wgpu_glyph::Extra {
+                    other: glyph_brush::Extra {
+                        color,
+                        ..Default::default()
+                    },
+                    draw_mode: wgpu_glyph::DrawMode::Pixelated(2.0 * self.scale_factor())
+                },
+                ..Default::default()
+            });
 
-        self.glyph_sections.push(section);
+        let layout = wgpu_glyph::PixelPositioner(section.layout);
+        self.glyph_brush.queue_custom_layout(&section, &layout);
     }
 
     pub fn render_circle(&mut self, center: Vector2<f32>, radius: f32) {
